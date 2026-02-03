@@ -2,7 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { Player, Character, CLASS_COLORS, PlayerRole, ROLE_PRIORITY } from '../types';
 import { WEEKLY_M_PLUS_GOAL } from '../constants';
-import { Search, Crown, Info, ExternalLink, CalendarDays, Shield, Heart, Sword, Target, ChevronDown, ChevronUp, ArrowUpDown, Check, Circle, CheckCircle2, XCircle, Clock, AlertCircle } from 'lucide-react';
+import { Search, Crown, Info, ExternalLink, CalendarDays, Shield, Heart, Sword, Target, ChevronDown, ChevronUp, ArrowUpDown, Check, Circle } from 'lucide-react';
 
 interface RosterTableProps {
   roster: Player[];
@@ -25,50 +25,6 @@ const RoleIcon = ({ role }: { role: PlayerRole }) => {
     case PlayerRole.RANGE: return <Target size={12} className="text-purple-400" />;
     default: return null;
   }
-};
-
-const EnrichmentStatusBadge = ({ status, lastEnrichedAt }: { status?: 'success' | 'failed' | 'pending' | 'stale'; lastEnrichedAt?: string }) => {
-  if (!status) return null;
-
-  const getStatusConfig = () => {
-    switch (status) {
-      case 'success':
-        return {
-          icon: <CheckCircle2 size={10} />,
-          className: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
-          tooltip: lastEnrichedAt ? `Enriched: ${new Date(lastEnrichedAt).toLocaleString()}` : 'Fresh data'
-        };
-      case 'failed':
-        return {
-          icon: <XCircle size={10} />,
-          className: 'bg-red-500/10 text-red-500 border-red-500/20',
-          tooltip: 'Enrichment failed'
-        };
-      case 'stale':
-        return {
-          icon: <Clock size={10} />,
-          className: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20',
-          tooltip: lastEnrichedAt ? `Last updated: ${new Date(lastEnrichedAt).toLocaleString()}` : 'Stale data'
-        };
-      case 'pending':
-        return {
-          icon: <AlertCircle size={10} />,
-          className: 'bg-slate-500/10 text-slate-400 border-slate-500/20',
-          tooltip: 'Pending enrichment'
-        };
-    }
-  };
-
-  const config = getStatusConfig();
-
-  return (
-    <span
-      className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[8px] font-bold uppercase ${config.className}`}
-      title={config.tooltip}
-    >
-      {config.icon}
-    </span>
-  );
 };
 
 export const RosterTable: React.FC<RosterTableProps> = ({ roster, minIlvl }) => {
@@ -239,12 +195,9 @@ export const RosterTable: React.FC<RosterTableProps> = ({ roster, minIlvl }) => 
                             {char.isMain && <Crown size={12} className="absolute -top-1.5 -right-1.5 text-amber-500 drop-shadow-md" />}
                           </div>
                           <div className="flex flex-col">
-                            <div className="flex items-center gap-2">
-                              <span className="font-black text-sm tracking-tight" style={{ color: CLASS_COLORS[char.className] }}>
-                                {char.name}
-                              </span>
-                              <EnrichmentStatusBadge status={char.enrichmentStatus} lastEnrichedAt={char.lastEnrichedAt} />
-                            </div>
+                            <span className="font-black text-sm tracking-tight" style={{ color: CLASS_COLORS[char.className] }}>
+                              {char.name}
+                            </span>
                             <span className="text-[10px] text-slate-600 font-bold uppercase tracking-tighter">{charServer}</span>
                           </div>
                         </div>

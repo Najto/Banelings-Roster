@@ -1,11 +1,14 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Player, Character, CLASS_COLORS, PlayerRole, GearItem } from '../types';
-import { Shield, Heart, Sword, Target, ChevronDown, ChevronRight, Check, X, Eye, EyeOff, Filter, Star, Gem } from 'lucide-react';
+import { Shield, Heart, Sword, Target, ChevronDown, ChevronRight, Check, X, Eye, EyeOff, Filter, Star, Gem, Zap, AlertCircle } from 'lucide-react';
 
 interface AuditProps {
   roster: Player[];
   minIlvl: number;
+  isEnriched?: boolean;
+  onEnrich?: () => void;
+  isEnriching?: boolean;
 }
 
 type CharacterFilter = 'mains' | 'alts' | 'all';
@@ -86,7 +89,7 @@ const getTrackShort = (track: string | undefined): string => {
   }
 };
 
-export const Audit: React.FC<AuditProps> = ({ roster, minIlvl }) => {
+export const Audit: React.FC<AuditProps> = ({ roster, minIlvl, isEnriched = false, onEnrich, isEnriching = false }) => {
   const [charFilter, setCharFilter] = useState<CharacterFilter>('mains');
   const [columnGroups, setColumnGroups] = useState<ColumnGroup[]>([
     { id: 'greatVault', label: 'Great Vault Score', enabled: true },
@@ -130,6 +133,32 @@ export const Audit: React.FC<AuditProps> = ({ roster, minIlvl }) => {
 
   return (
     <div className="space-y-4">
+      {!isEnriched && (
+        <div className="bg-amber-500/10 border border-amber-500/20 text-amber-400 px-6 py-4 rounded-xl">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <AlertCircle size={20} />
+              <div>
+                <h3 className="text-sm font-black uppercase tracking-wide">Detailed Data Not Available</h3>
+                <p className="text-xs text-amber-400/80 mt-1">
+                  The audit requires enriched character data. Click "Enrich All Data" to fetch detailed gear, stats, and vault information.
+                </p>
+              </div>
+            </div>
+            {onEnrich && (
+              <button
+                onClick={onEnrich}
+                disabled={isEnriching}
+                className="bg-amber-500 hover:bg-amber-600 text-black px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest flex items-center gap-2 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Zap size={16} className={isEnriching ? 'animate-spin' : ''} />
+                {isEnriching ? 'Enriching...' : 'Enrich All Data'}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-wrap items-center gap-3 bg-[#0c0c0e] p-3 rounded-xl border border-white/5">
         <div className="flex p-0.5 bg-black rounded-lg border border-white/5">
           {(['mains', 'alts', 'all'] as CharacterFilter[]).map((filter) => (

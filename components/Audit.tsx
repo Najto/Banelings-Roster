@@ -197,6 +197,28 @@ export const Audit: React.FC<AuditProps> = ({ roster, minIlvl, isEnriched = fals
         </div>
       )}
 
+      <div className="mb-4 bg-gradient-to-br from-slate-900 to-gray-900 border border-white border-opacity-5 rounded-3xl p-6 shadow-2xl">
+        <div className="flex items-start gap-4">
+          <div className="flex-shrink-0 w-10 h-10 bg-cyan-500 bg-opacity-10 rounded-xl flex items-center justify-center">
+            <ClipboardCheck size={20} className="text-cyan-400" />
+          </div>
+          <div className="flex-1">
+            <h3 className="text-lg font-black text-white mb-2">Character Audit Overview</h3>
+            <p className="text-sm text-slate-400 leading-relaxed mb-3">
+              Comprehensive character audit displaying enriched data from Blizzard API and Raider.IO. Toggle column groups to customize your view and identify gear, enchantment, vault progress, and upgrade opportunities across your roster.
+            </p>
+            <div className="flex flex-wrap gap-2 text-xs">
+              <span className="px-3 py-1 bg-amber-500 bg-opacity-10 text-amber-400 rounded-lg font-bold">Great Vault Progress</span>
+              <span className="px-3 py-1 bg-cyan-500 bg-opacity-10 text-cyan-400 rounded-lg font-bold">Item Track Distribution</span>
+              <span className="px-3 py-1 bg-purple-500 bg-opacity-10 text-purple-400 rounded-lg font-bold">Gear Stats & Tier</span>
+              <span className="px-3 py-1 bg-emerald-500 bg-opacity-10 text-emerald-400 rounded-lg font-bold">Enchantments & Gems</span>
+              <span className="px-3 py-1 bg-blue-500 bg-opacity-10 text-blue-400 rounded-lg font-bold">Stat Distribution</span>
+              <span className="px-3 py-1 bg-rose-500 bg-opacity-10 text-rose-400 rounded-lg font-bold">Slot-by-Slot Analysis</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div className="flex flex-col md:flex-row items-center justify-between gap-4 bg-gray-900 bg-opacity-95 backdrop-blur-md p-4 rounded-3xl border border-white border-opacity-5 sticky top-0 z-40 shadow-2xl">
         <div className="flex items-center gap-3">
           <div className="flex p-1 bg-black rounded-2xl border border-white border-opacity-5">

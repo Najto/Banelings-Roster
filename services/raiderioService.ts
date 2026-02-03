@@ -77,7 +77,14 @@ export const fetchRaiderIOData = async (name: string, realm: string): Promise<Pa
       recentRuns: allRuns,
       thumbnailUrl: data.thumbnail_url,
       profileUrl: data.profile_url,
-      lastSeen: new Date(data.last_crawled_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + " ago"
+      lastSeen: (() => {
+        const d = new Date(data.last_crawled_at);
+        const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+        const day = String(d.getDate()).padStart(2, '0');
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const year = String(d.getFullYear()).slice(-2);
+        return `${time} - ${day}/${month}/${year}`;
+      })()
     };
   } catch (error) {
     console.error(`Raider.io fetch failed for ${name}-${realm}:`, error);

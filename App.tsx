@@ -9,7 +9,7 @@ import { SplitSetup } from './components/SplitSetup';
 import { Settings } from './components/Settings';
 import { fetchRosterFromSheet, fetchSplitsFromSheet } from './services/spreadsheetService';
 import { fetchRaiderIOData } from './services/raiderioService';
-import { LayoutGrid, Users, Sword, RefreshCw, Settings as SettingsIcon, AlertTriangle, Zap, Split } from 'lucide-react';
+import { LayoutGrid, Users, RefreshCw, Settings as SettingsIcon, AlertTriangle, Zap, Split } from 'lucide-react';
 
 const App: React.FC = () => {
   const [roster, setRoster] = useState<Player[]>(INITIAL_ROSTER);
@@ -82,10 +82,8 @@ const App: React.FC = () => {
     <div className="min-h-screen wow-gradient flex flex-col md:flex-row overflow-hidden h-screen text-slate-200">
       <nav className="w-full md:w-64 bg-[#050507] border-b md:border-b-0 md:border-r border-white/5 p-6 space-y-8 sticky top-0 md:h-screen z-10 flex flex-col shadow-2xl">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-600/30">
-            <Sword className="text-white" size={24} />
-          </div>
-          <h1 className="text-xl font-black tracking-tighter text-white">AZEROTH<span className="text-indigo-500">PRO</span></h1>
+          <img src="/96f31eb4f56a49f3e069065c7614c591.png" alt="Banelings" className="w-10 h-10 object-contain" />
+          <h1 className="text-xl font-black tracking-tighter text-white">Banelings</h1>
         </div>
 
         <div className="space-y-1 flex-1">

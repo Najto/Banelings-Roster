@@ -1,0 +1,120 @@
+
+export enum WoWClass {
+  DEATH_KNIGHT = 'Death Knight',
+  DEMON_HUNTER = 'Demon Hunter',
+  DRUID = 'Druid',
+  EVOKER = 'Evoker',
+  HUNTER = 'Hunter',
+  MAGE = 'Mage',
+  MONK = 'Monk',
+  PALADIN = 'Paladin',
+  PRIEST = 'Priest',
+  ROGUE = 'Rogue',
+  SHAMAN = 'Shaman',
+  WARLOCK = 'Warlock',
+  WARRIOR = 'Warrior',
+  UNKNOWN = 'Unknown'
+}
+
+export enum PlayerRole {
+  TANK = 'Tank',
+  HEALER = 'Healer',
+  MELEE = 'Melee',
+  RANGE = 'Range',
+  UNKNOWN = 'Unknown'
+}
+
+export const ROLE_PRIORITY: Record<PlayerRole, number> = {
+  [PlayerRole.TANK]: 1,
+  [PlayerRole.HEALER]: 2,
+  [PlayerRole.MELEE]: 3,
+  [PlayerRole.RANGE]: 4,
+  [PlayerRole.UNKNOWN]: 5
+};
+
+export interface MPlusRun {
+  dungeon: string;
+  short_name: string;
+  mythic_level: number;
+  completed_at: string;
+  num_keystone_upgrades: number;
+  score: number;
+  url: string;
+}
+
+export interface Character {
+  name: string;
+  className: WoWClass;
+  spec?: string;
+  itemLevel: number;
+  mPlusRating?: number;
+  weeklyTenPlusCount?: number;
+  weeklyHistory?: number[]; 
+  recentRuns?: MPlusRun[];
+  lastSeen?: string;
+  server?: string;
+  isMain?: boolean;
+  playerName?: string;
+  thumbnailUrl?: string;
+  profileUrl?: string;
+}
+
+export interface Player {
+  id: string;
+  name: string;
+  role: PlayerRole;
+  mainCharacter: Character;
+  splits: Character[];
+}
+
+export interface RaidBuff {
+  name: string;
+  active: boolean;
+}
+
+export interface ArmorCount {
+  cloth: number;
+  leather: number;
+  mail: number;
+  plate: number;
+}
+
+export interface SplitGroup {
+  name: string;
+  avgIlvl: number;
+  players: {
+    role: PlayerRole;
+    name: string;
+    playerName: string;
+    className: WoWClass;
+    isMain: boolean;
+    ilvl: number;
+    server?: string;
+  }[];
+  buffs: RaidBuff[];
+  utility: RaidBuff[];
+  armor: ArmorCount;
+}
+
+export interface MemberMapping {
+  memberName: string;
+  role?: PlayerRole;
+  characters: { name: string; realm: string }[];
+}
+
+export const CLASS_COLORS: Record<WoWClass, string> = {
+  [WoWClass.DEATH_KNIGHT]: '#C41F3B',
+  [WoWClass.DEMON_HUNTER]: '#A330C9',
+  [WoWClass.DRUID]: '#FF7D0A',
+  [WoWClass.EVOKER]: '#33937F',
+  [WoWClass.HUNTER]: '#ABD473',
+  [WoWClass.MAGE]: '#3FC7EB',
+  [WoWClass.MONK]: '#00FF98',
+  [WoWClass.PALADIN]: '#F58CBA',
+  [WoWClass.PRIEST]: '#FFFFFF',
+  [WoWClass.ROGUE]: '#FFF569',
+  [WoWClass.SHAMAN]: '#0070DE',
+  [WoWClass.WARLOCK]: '#8787ED',
+  [WoWClass.WARRIOR]: '#C79C6E',
+  [WoWClass.UNKNOWN]: '#94a3b8'
+};

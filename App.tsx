@@ -1,0 +1,200 @@
+
+import React, { useState, useEffect, useCallback } from 'react';
+import { INITIAL_ROSTER } from './constants';
+import { Player, MemberMapping, PlayerRole, SplitGroup } from './types';
+import { RosterTable } from './components/RosterTable';
+import { StatOverview } from './components/StatOverview';
+import { GeminiAnalyzer } from './components/GeminiAnalyzer';
+import { AnalyticsDashboard } from './components/AnalyticsDashboard';
+import { SplitSetup } from './components/SplitSetup';
+import { Settings } from './components/Settings';
+import { fetchRosterFromSheet, fetchSplitsFromSheet } from './services/spreadsheetService';
+import { fetchRaiderIOData } from './services/raiderioService';
+import { LayoutGrid, Users, Trophy, Sword, RefreshCw, Settings as SettingsIcon, AlertTriangle, Zap, Split } from 'lucide-react';
+
+const App: React.FC = () => {
+  const [roster, setRoster] = useState<Player[]>(INITIAL_ROSTER);
+  const [splits, setSplits] = useState<SplitGroup[]>([]);
+  const [minIlvl, setMinIlvl] = useState<number>(615);
+  const [activeTab, setActiveTab] = useState<'roster' | 'analytics' | 'splits' | 'strategy' | 'settings'>('roster');
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [lastUpdate, setLastUpdate] = useState<string>("Nie");
+
+  const enrichWithRaiderIO = useCallback(async (baseRoster: Player[]) => {
+    const mappings: MemberMapping[] = JSON.parse(localStorage.getItem('guild_mappings') || "[]");
+    
+    const enrichedRoster = await Promise.all(baseRoster.map(async (player) => {
+      const mapping = mappings.find(m => m.memberName.toLowerCase() === player.name.toLowerCase());
+      
+      const finalRole = (mapping && mapping.role && mapping.role !== PlayerRole.UNKNOWN) 
+        ? mapping.role 
+        : player.role;
+
+      const enrichChar = async (char: any) => {
+        const rio = await fetchRaiderIOData(char.name, char.server || "Blackhand");
+        return rio ? { ...char, ...rio } : char;
+      };
+
+      const enrichedMain = await enrichChar(player.mainCharacter);
+      const enrichedSplits = await Promise.all(player.splits.map(enrichChar));
+
+      return {
+        ...player,
+        role: finalRole,
+        mainCharacter: enrichedMain,
+        splits: enrichedSplits
+      };
+    }));
+
+    setRoster(enrichedRoster);
+  }, []);
+
+  const syncWithSheet = useCallback(async () => {
+    setIsUpdating(true);
+    setError(null);
+    try {
+      const [rosterResult, splitsResult] = await Promise.all([
+        fetchRosterFromSheet(),
+        fetchSplitsFromSheet()
+      ]);
+
+      if (rosterResult.roster.length > 0) {
+        setRoster(rosterResult.roster);
+        await enrichWithRaiderIO(rosterResult.roster);
+      }
+      
+      setSplits(splitsResult);
+      setMinIlvl(rosterResult.minIlvl);
+      setLastUpdate(new Date().toLocaleTimeString());
+    } catch (e) {
+      setError("Synchronisierung fehlgeschlagen.");
+      console.error(e);
+    } finally {
+      setIsUpdating(false);
+    }
+  }, [enrichWithRaiderIO]);
+
+  useEffect(() => {
+    syncWithSheet();
+  }, [syncWithSheet]);
+
+  return (
+    <div className="min-h-screen wow-gradient flex flex-col md:flex-row overflow-hidden h-screen text-slate-200">
+      <nav className="w-full md:w-64 bg-[#050507] border-b md:border-b-0 md:border-r border-white/5 p-6 space-y-8 sticky top-0 md:h-screen z-10 flex flex-col shadow-2xl">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-600/30">
+            <Sword className="text-white" size={24} />
+          </div>
+          <h1 className="text-xl font-black tracking-tighter text-white">AZEROTH<span className="text-indigo-500">PRO</span></h1>
+        </div>
+
+        <div className="space-y-1 flex-1">
+          <button 
+            onClick={() => setActiveTab('roster')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${activeTab === 'roster' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'text-slate-500 hover:bg-white/5 hover:text-white'}`}
+          >
+            <Users size={16} />
+            Roster
+          </button>
+          <button 
+            onClick={() => setActiveTab('splits')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${activeTab === 'splits' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'text-slate-500 hover:bg-white/5 hover:text-white'}`}
+          >
+            <Split size={16} />
+            Split Setup
+          </button>
+          <button 
+            onClick={() => setActiveTab('analytics')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${activeTab === 'analytics' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'text-slate-500 hover:bg-white/5 hover:text-white'}`}
+          >
+            <LayoutGrid size={16} />
+            Performance
+          </button>
+          <button 
+            onClick={() => setActiveTab('strategy')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${activeTab === 'strategy' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'text-slate-500 hover:bg-white/5 hover:text-white'}`}
+          >
+            <Trophy size={16} />
+            AI Strategy
+          </button>
+          <button 
+            onClick={() => setActiveTab('settings')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${activeTab === 'settings' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'text-slate-500 hover:bg-white/5 hover:text-white'}`}
+          >
+            <SettingsIcon size={16} />
+            Settings
+          </button>
+        </div>
+
+        <div className="pt-8 border-t border-white/5">
+          <div className="bg-black/40 p-4 rounded-xl border border-white/5">
+             <div className="flex items-center justify-between mb-2">
+               <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">Live Status</p>
+               <Zap className={isUpdating ? "text-indigo-400 animate-pulse" : "text-emerald-500"} size={12} />
+             </div>
+             <p className="text-[10px] text-slate-300">Sync: {lastUpdate}</p>
+             <p className="text-[10px] text-indigo-400 mt-1 font-bold">Limit: {minIlvl} iLvl</p>
+          </div>
+        </div>
+      </nav>
+
+      <main className="flex-1 p-4 md:p-8 overflow-y-auto bg-[#020203]">
+        <header className="mb-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="bg-indigo-500/10 text-indigo-400 text-[10px] font-black px-2 py-0.5 rounded border border-indigo-500/20 uppercase tracking-widest">Gilden Dashboard S1</span>
+            </div>
+            <h2 className="text-4xl font-black text-white tracking-tight uppercase">
+              {activeTab === 'roster' && 'Guild Roster'}
+              {activeTab === 'splits' && 'Split Setup'}
+              {activeTab === 'analytics' && 'Analytics'}
+              {activeTab === 'strategy' && 'AI Strategist'}
+              {activeTab === 'settings' && 'Guild Settings'}
+            </h2>
+          </div>
+          <button 
+            onClick={syncWithSheet}
+            disabled={isUpdating}
+            className="bg-white/5 hover:bg-white/10 border border-white/10 text-white px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest flex items-center gap-2 transition-all active:scale-95 disabled:opacity-50"
+          >
+            <RefreshCw className={`${isUpdating ? 'animate-spin' : ''}`} size={16} />
+            Refresh Data
+          </button>
+        </header>
+
+        {error && (
+          <div className="mb-6 bg-red-500/10 border border-red-500/20 text-red-500 px-4 py-3 rounded-xl text-xs font-bold flex items-center gap-3">
+             <AlertTriangle size={16} />
+             {error}
+          </div>
+        )}
+
+        <div className="max-w-7xl mx-auto">
+          {activeTab === 'roster' && (
+            <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
+              <StatOverview roster={roster} minIlvl={minIlvl} />
+              <RosterTable roster={roster} minIlvl={minIlvl} />
+            </div>
+          )}
+
+          {activeTab === 'splits' && (
+            <SplitSetup splits={splits} roster={roster} />
+          )}
+
+          {activeTab === 'analytics' && (
+            <div className="space-y-6">
+              <StatOverview roster={roster} minIlvl={minIlvl} />
+              <AnalyticsDashboard roster={roster} />
+            </div>
+          )}
+          
+          {activeTab === 'strategy' && <GeminiAnalyzer roster={roster} />}
+          {activeTab === 'settings' && <Settings />}
+        </div>
+      </main>
+    </div>
+  );
+};
+
+export default App;

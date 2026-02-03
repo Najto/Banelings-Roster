@@ -9,7 +9,8 @@ import { SplitSetup } from './components/SplitSetup';
 import { Settings } from './components/Settings';
 import { fetchRosterFromSheet, fetchSplitsFromSheet } from './services/spreadsheetService';
 import { fetchRaiderIOData } from './services/raiderioService';
-import { LayoutGrid, Users, RefreshCw, Settings as SettingsIcon, AlertTriangle, Zap, Split } from 'lucide-react';
+import { CharacterDetailView } from './components/CharacterDetailView';
+import { LayoutGrid, Users, RefreshCw, Settings as SettingsIcon, AlertTriangle, Zap, Split, List, User } from 'lucide-react';
 
 const App: React.FC = () => {
   const [roster, setRoster] = useState<Player[]>(INITIAL_ROSTER);
@@ -19,6 +20,7 @@ const App: React.FC = () => {
   const [isUpdating, setIsUpdating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState<string>("Nie");
+  const [rosterViewMode, setRosterViewMode] = useState<'table' | 'detail'>('table');
 
   const enrichWithRaiderIO = useCallback(async (baseRoster: Player[]) => {
     const mappings: MemberMapping[] = JSON.parse(localStorage.getItem('guild_mappings') || "[]");
@@ -162,8 +164,30 @@ const App: React.FC = () => {
         <div className="max-w-7xl mx-auto">
           {activeTab === 'roster' && (
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
-              <StatOverview roster={roster} minIlvl={minIlvl} />
-              <RosterTable roster={roster} minIlvl={minIlvl} />
+              <div className="flex items-center justify-between mb-6">
+                <StatOverview roster={roster} minIlvl={minIlvl} />
+                <div className="flex p-1 bg-black rounded-xl border border-white/5">
+                  <button
+                    onClick={() => setRosterViewMode('table')}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${rosterViewMode === 'table' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/20' : 'text-slate-500 hover:text-slate-300'}`}
+                  >
+                    <List size={14} />
+                    Table
+                  </button>
+                  <button
+                    onClick={() => setRosterViewMode('detail')}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${rosterViewMode === 'detail' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/20' : 'text-slate-500 hover:text-slate-300'}`}
+                  >
+                    <User size={14} />
+                    Detail
+                  </button>
+                </div>
+              </div>
+              {rosterViewMode === 'table' ? (
+                <RosterTable roster={roster} minIlvl={minIlvl} />
+              ) : (
+                <CharacterDetailView roster={roster} minIlvl={minIlvl} />
+              )}
             </div>
           )}
 

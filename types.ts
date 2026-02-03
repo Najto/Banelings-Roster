@@ -42,6 +42,43 @@ export interface MPlusRun {
   url: string;
 }
 
+export interface GearItem {
+  slot: string;
+  name: string;
+  itemLevel: number;
+  quality: string;
+  enchant?: string;
+  gems?: string[];
+  bonusIds?: number[];
+  tier?: boolean;
+}
+
+export interface CharacterStats {
+  crit: number;
+  haste: number;
+  mastery: number;
+  versatility: number;
+}
+
+export interface RaidProgress {
+  name: string;
+  shortName: string;
+  normalKills: number;
+  heroicKills: number;
+  mythicKills: number;
+  totalBosses: number;
+}
+
+export interface MythicPlusBestRun {
+  dungeon: string;
+  shortName: string;
+  mythicLevel: number;
+  completedAt: string;
+  keystoneUpgrades: number;
+  score: number;
+  affixes: string[];
+}
+
 export interface Character {
   name: string;
   className: WoWClass;
@@ -49,7 +86,7 @@ export interface Character {
   itemLevel: number;
   mPlusRating?: number;
   weeklyTenPlusCount?: number;
-  weeklyHistory?: number[]; 
+  weeklyHistory?: number[];
   recentRuns?: MPlusRun[];
   lastSeen?: string;
   server?: string;
@@ -57,6 +94,15 @@ export interface Character {
   playerName?: string;
   thumbnailUrl?: string;
   profileUrl?: string;
+  race?: string;
+  faction?: string;
+  gear?: GearItem[];
+  stats?: CharacterStats;
+  raidProgress?: RaidProgress[];
+  bestMythicPlusRuns?: MythicPlusBestRun[];
+  talentLoadout?: string;
+  achievementPoints?: number;
+  honorableKills?: number;
 }
 
 export interface Player {

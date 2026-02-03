@@ -142,3 +142,38 @@ export const fetchRaiderIOData = async (name: string, realm: string): Promise<Pa
     return null;
   }
 };
+
+export const fetchEnrichedCharacterData = async (
+  name: string,
+  realm: string,
+  blizzardToken: string,
+  useCache: boolean = true
+): Promise<Partial<Character> | null> => {
+  try {
+    const { getCachedData, setCachedData, getCacheKey } = await import('./cacheService');
+    const { enrichCharacterData } = await import('./enrichmentService');
+
+    const cacheKey = getCacheKey('enriched', 'eu', realm, name);
+
+    if (useCache) {
+      const cached = await getCachedData<Partial<Character>>(cacheKey);
+      if (cached) {
+        return cached;
+      }
+    }
+
+    const rioData = await fetchRaiderIOData(name, realm);
+    if (!rioData) return null;
+
+    const enrichedData = await enrichCharacterData(rioData, blizzardToken, realm, name);
+
+    if (useCache) {
+      await setCachedData(cacheKey, enrichedData);
+    }
+
+    return enrichedData;
+  } catch (error) {
+    console.error(`Enriched character fetch failed for ${name}-${realm}:`, error);
+    return null;
+  }
+};

@@ -7,8 +7,8 @@ import { StatOverview } from './components/StatOverview';
 import { AnalyticsDashboard } from './components/AnalyticsDashboard';
 import { SplitSetup } from './components/SplitSetup';
 import { Settings } from './components/Settings';
-import { fetchRosterFromSheet, fetchSplitsFromSheet } from './services/spreadsheetService';
-import { fetchRaiderIOData } from './services/raiderioService';
+import { fetchRosterFromSheet, fetchSplitsFromSheet, enrichRosterWithAPIData } from './services/spreadsheetService';
+import { fetchBlizzardToken } from './services/blizzardService';
 import { CharacterDetailView } from './components/CharacterDetailView';
 import { Audit } from './components/Audit';
 import { LayoutGrid, Users, RefreshCw, Settings as SettingsIcon, AlertTriangle, Zap, Split, List, User, ClipboardCheck } from 'lucide-react';
@@ -22,34 +22,37 @@ const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState<string>("Nie");
   const [rosterViewMode, setRosterViewMode] = useState<'table' | 'detail'>('table');
+  const [enrichmentProgress, setEnrichmentProgress] = useState<{ current: number; total: number } | null>(null);
 
-  const enrichWithRaiderIO = useCallback(async (baseRoster: Player[]) => {
+  const enrichWithFullAPIData = useCallback(async (baseRoster: Player[]) => {
     const mappings: MemberMapping[] = JSON.parse(localStorage.getItem('guild_mappings') || "[]");
-    
-    const enrichedRoster = await Promise.all(baseRoster.map(async (player) => {
+
+    const token = await fetchBlizzardToken();
+    if (!token) {
+      console.error('Failed to fetch Blizzard token');
+      return baseRoster;
+    }
+
+    const enrichedRoster = await enrichRosterWithAPIData(
+      baseRoster,
+      token,
+      (current, total) => {
+        setEnrichmentProgress({ current, total });
+      }
+    );
+
+    setEnrichmentProgress(null);
+
+    const finalRoster = enrichedRoster.map(player => {
       const mapping = mappings.find(m => m.memberName.toLowerCase() === player.name.toLowerCase());
-      
-      const finalRole = (mapping && mapping.role && mapping.role !== PlayerRole.UNKNOWN) 
-        ? mapping.role 
+      const finalRole = (mapping && mapping.role && mapping.role !== PlayerRole.UNKNOWN)
+        ? mapping.role
         : player.role;
 
-      const enrichChar = async (char: any) => {
-        const rio = await fetchRaiderIOData(char.name, char.server || "Blackhand");
-        return rio ? { ...char, ...rio } : char;
-      };
+      return { ...player, role: finalRole };
+    });
 
-      const enrichedMain = await enrichChar(player.mainCharacter);
-      const enrichedSplits = await Promise.all(player.splits.map(enrichChar));
-
-      return {
-        ...player,
-        role: finalRole,
-        mainCharacter: enrichedMain,
-        splits: enrichedSplits
-      };
-    }));
-
-    setRoster(enrichedRoster);
+    setRoster(finalRoster);
   }, []);
 
   const syncWithSheet = useCallback(async () => {
@@ -63,9 +66,9 @@ const App: React.FC = () => {
 
       if (rosterResult.roster.length > 0) {
         setRoster(rosterResult.roster);
-        await enrichWithRaiderIO(rosterResult.roster);
+        await enrichWithFullAPIData(rosterResult.roster);
       }
-      
+
       setSplits(splitsResult);
       setMinIlvl(rosterResult.minIlvl);
       setLastUpdate(new Date().toLocaleTimeString());
@@ -75,7 +78,7 @@ const App: React.FC = () => {
     } finally {
       setIsUpdating(false);
     }
-  }, [enrichWithRaiderIO]);
+  }, [enrichWithFullAPIData]);
 
   useEffect(() => {
     syncWithSheet();
@@ -167,6 +170,13 @@ const App: React.FC = () => {
           <div className="mb-6 bg-red-500/10 border border-red-500/20 text-red-500 px-4 py-3 rounded-xl text-xs font-bold flex items-center gap-3">
              <AlertTriangle size={16} />
              {error}
+          </div>
+        )}
+
+        {enrichmentProgress && (
+          <div className="mb-6 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-4 py-3 rounded-xl text-xs font-bold flex items-center gap-3">
+            <Zap size={16} className="animate-pulse" />
+            Enriching character data: {enrichmentProgress.current}/{enrichmentProgress.total}
           </div>
         )}
 

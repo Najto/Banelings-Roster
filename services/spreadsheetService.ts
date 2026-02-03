@@ -125,7 +125,7 @@ export const fetchSplitsFromSheet = async (): Promise<SplitGroup[]> => {
   try {
     const response = await fetch(`${SPLITS_CSV_URL}&t=${Date.now()}`);
     if (!response.ok) throw new Error("Splits Sync failed");
-    
+
     const csvText = await response.text();
     const rows = csvText.split(/\r?\n/).map(splitCSVRow);
 
@@ -134,11 +134,10 @@ export const fetchSplitsFromSheet = async (): Promise<SplitGroup[]> => {
       const buffs: RaidBuff[] = [];
       const utility: RaidBuff[] = [];
       const armor: ArmorCount = { cloth: 0, leather: 0, mail: 0, plate: 0 };
-      
+
       let currentRole: PlayerRole = PlayerRole.UNKNOWN;
       let totalIlvl = 0;
 
-      // Iterate player rows (from row 3 to roughly 35)
       for (let i = 2; i < 35; i++) {
         const row = rows[i];
         if (!row) continue;
@@ -155,18 +154,17 @@ export const fetchSplitsFromSheet = async (): Promise<SplitGroup[]> => {
         if (name && classText && name !== "Name") {
           const className = parseClass(classText);
           const isMain = typeText?.toLowerCase().includes('main');
-          
+
           players.push({
             role: currentRole,
             name,
-            playerName: name, // Default to name if unknown, usually matched in App.tsx
+            playerName: name,
             className,
             isMain,
             ilvl
           });
           totalIlvl += ilvl;
 
-          // Armor counts - ONLY for Mains
           if (isMain) {
             const cls = className;
             if ([WoWClass.MAGE, WoWClass.PRIEST, WoWClass.WARLOCK].includes(cls)) armor.cloth++;
@@ -176,11 +174,8 @@ export const fetchSplitsFromSheet = async (): Promise<SplitGroup[]> => {
           }
         }
 
-        // Buffs/Utility parsing from respective columns
         const buffNameRaw = row[buffCol]?.trim();
         const buffCheck = row[buffCol + 1]?.trim().toLowerCase();
-        
-        // Remove "Token" (case insensitive) from names as per request
         const buffName = buffNameRaw ? buffNameRaw.replace(/\bToken\b/gi, '').trim() : "";
 
         if (buffName && i < 15) {
@@ -200,11 +195,67 @@ export const fetchSplitsFromSheet = async (): Promise<SplitGroup[]> => {
       };
     };
 
-    // Grp 1 starts at Col B (index 1), Buffs at Col F (index 5)
-    // Grp 2 starts at Col K (index 10), Buffs at Col O (index 14)
     return [parseGroup(1, 5), parseGroup(10, 14)];
   } catch (error) {
     console.error("Splits Parsing Error:", error);
     return [];
   }
+};
+
+export const enrichRosterWithAPIData = async (
+  roster: Player[],
+  blizzardToken: string,
+  onProgress?: (current: number, total: number) => void
+): Promise<Player[]> => {
+  const { fetchEnrichedCharacterData } = await import('./raiderioService');
+
+  const enrichedRoster: Player[] = [];
+  let processed = 0;
+  const total = roster.reduce((sum, player) => sum + 1 + player.splits.length, 0);
+
+  for (const player of roster) {
+    const enrichedPlayer = { ...player };
+
+    if (player.mainCharacter.server && player.mainCharacter.name) {
+      const enrichedMain = await fetchEnrichedCharacterData(
+        player.mainCharacter.name,
+        player.mainCharacter.server,
+        blizzardToken
+      );
+
+      if (enrichedMain) {
+        enrichedPlayer.mainCharacter = { ...player.mainCharacter, ...enrichedMain };
+      }
+
+      processed++;
+      onProgress?.(processed, total);
+    }
+
+    const enrichedSplits: Character[] = [];
+    for (const split of player.splits) {
+      if (split.server && split.name) {
+        const enrichedSplit = await fetchEnrichedCharacterData(
+          split.name,
+          split.server,
+          blizzardToken
+        );
+
+        if (enrichedSplit) {
+          enrichedSplits.push({ ...split, ...enrichedSplit });
+        } else {
+          enrichedSplits.push(split);
+        }
+
+        processed++;
+        onProgress?.(processed, total);
+      } else {
+        enrichedSplits.push(split);
+      }
+    }
+
+    enrichedPlayer.splits = enrichedSplits;
+    enrichedRoster.push(enrichedPlayer);
+  }
+
+  return enrichedRoster;
 };

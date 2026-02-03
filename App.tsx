@@ -79,7 +79,7 @@ const App: React.FC = () => {
       if (rosterResult.roster.length > 0) {
         const mappings: MemberMapping[] = JSON.parse(localStorage.getItem('guild_mappings') || "[]");
 
-        const finalRoster = rosterResult.roster.map(player => {
+        let finalRoster = rosterResult.roster.map(player => {
           const mapping = mappings.find(m => m.memberName.toLowerCase() === player.name.toLowerCase());
           const finalRole = (mapping && mapping.role && mapping.role !== PlayerRole.UNKNOWN)
             ? mapping.role
@@ -88,11 +88,17 @@ const App: React.FC = () => {
           return { ...player, role: finalRole };
         });
 
-        setRoster(finalRoster);
+        const rosterWithCache = await loadRosterFromDatabase(finalRoster);
+        setRoster(rosterWithCache);
         setLastUpdate(new Date().toLocaleTimeString());
 
+        const metadata = await getEnrichmentMetadata();
+        if (metadata?.last_enriched_at) {
+          setIsEnriched(true);
+        }
+
         if (withEnrichment) {
-          await enrichWithFullAPIData(finalRoster);
+          await enrichWithFullAPIData(rosterWithCache);
         }
       }
     } catch (e) {

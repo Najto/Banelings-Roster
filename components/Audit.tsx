@@ -4,7 +4,7 @@ import { Player, Character, CLASS_COLORS, PlayerRole, GearItem } from '../types'
 import {
   Shield, Heart, Sword, Target, ChevronDown, ChevronUp, Check, X, Eye, EyeOff, Filter,
   Star, Gem, Zap, AlertCircle, Trophy, Box, Sparkles, BarChart, Wand2,
-  Compass, Users2, Award, Swords, Hexagon, Search
+  Compass, Users2, Award, Swords, Hexagon, Search, ClipboardCheck
 } from 'lucide-react';
 
 interface AuditProps {

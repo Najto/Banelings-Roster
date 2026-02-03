@@ -17,7 +17,7 @@ export interface BlizzardCharData {
 
 export interface BlizzardEquipmentItem {
   slot: { type: string; name: string };
-  name: { en_GB: string };
+  name?: { en_GB?: string } | string;
   level: { value: number };
   quality: { type: string };
   item: { id: number };
@@ -148,5 +148,10 @@ export const getCharacterAchievements = async (token: string, realm: string, nam
 
 export const getCharacterCollections = async (token: string, realm: string, name: string): Promise<any | null> => {
   const url = `https://${REGION}.api.blizzard.com/profile/wow/character/${realm.toLowerCase()}/${name.toLowerCase()}/collections?namespace=${NAMESPACE}&locale=${LOCALE}`;
+  return fetchBlizzardAPI(token, url);
+};
+
+export const getItemDetails = async (token: string, itemId: number): Promise<{ name: { en_GB: string } } | null> => {
+  const url = `https://${REGION}.api.blizzard.com/data/wow/item/${itemId}?namespace=static-${REGION}&locale=${LOCALE}`;
   return fetchBlizzardAPI(token, url);
 };

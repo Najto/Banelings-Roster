@@ -66,30 +66,47 @@ export const detectUpgradeTrack = (bonusIds: number[]): string | undefined => {
   return undefined;
 };
 
-export const enrichGearWithTracks = (equipmentData: BlizzardAPI.BlizzardEquipmentData): GearItem[] => {
+export const enrichGearWithTracks = async (equipmentData: BlizzardAPI.BlizzardEquipmentData, token?: string): Promise<GearItem[]> => {
   if (!equipmentData?.equipped_items) return [];
 
-  return equipmentData.equipped_items.map(item => {
-    const slotKey = SLOT_NAME_MAP[item.slot.type] || item.slot.type.toLowerCase();
-    const bonusIds = item.bonus_list || [];
-    const upgradeTrack = detectUpgradeTrack(bonusIds);
-    const isTier = TIER_ITEM_IDS.has(item.item.id);
+  const gearItems = await Promise.all(
+    equipmentData.equipped_items.map(async item => {
+      const slotKey = SLOT_NAME_MAP[item.slot.type] || item.slot.type.toLowerCase();
+      const bonusIds = item.bonus_list || [];
+      const upgradeTrack = detectUpgradeTrack(bonusIds);
+      const isTier = TIER_ITEM_IDS.has(item.item.id);
 
-    const enchant = item.enchantments?.[0]?.display_string?.en_GB;
-    const gems = item.sockets?.map(socket => socket.item.id.toString()) || [];
+      const enchant = item.enchantments?.[0]?.display_string?.en_GB;
+      const gems = item.sockets?.map(socket => socket.item.id.toString()) || [];
 
-    return {
-      slot: slotKey,
-      name: item.name.en_GB || 'Unknown',
-      itemLevel: item.level.value,
-      quality: item.quality.type,
-      enchant,
-      gems,
-      bonusIds,
-      tier: isTier,
-      upgradeTrack
-    };
-  });
+      let itemName = 'Unknown';
+
+      if (typeof item.name === 'object' && item.name?.en_GB) {
+        itemName = item.name.en_GB;
+      } else if (typeof item.name === 'string') {
+        itemName = item.name;
+      } else if (token && item.item?.id) {
+        const itemDetails = await BlizzardAPI.getItemDetails(token, item.item.id);
+        if (itemDetails?.name?.en_GB) {
+          itemName = itemDetails.name.en_GB;
+        }
+      }
+
+      return {
+        slot: slotKey,
+        name: itemName,
+        itemLevel: item.level.value,
+        quality: item.quality.type,
+        enchant,
+        gems,
+        bonusIds,
+        tier: isTier,
+        upgradeTrack
+      };
+    })
+  );
+
+  return gearItems;
 };
 
 export const calculateUpgradeTrackDistribution = (gear: GearItem[]): UpgradeTrackDistribution => {
@@ -264,7 +281,7 @@ export const enrichCharacterData = async (
   ]);
 
   if (equipmentData) {
-    enriched.gear = enrichGearWithTracks(equipmentData);
+    enriched.gear = await enrichGearWithTracks(equipmentData, token);
     enriched.upgradeTrackDistribution = calculateUpgradeTrackDistribution(enriched.gear);
   }
 

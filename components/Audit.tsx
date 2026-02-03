@@ -265,9 +265,184 @@ export const Audit: React.FC<AuditProps> = ({ roster, minIlvl, isEnriched = fals
       </div>
 
       <div className="bg-gray-900 border border-white border-opacity-5 rounded-3xl shadow-2xl overflow-x-auto border-t-0">
-        <div className="text-xs text-center text-slate-500 p-4">
-          Audit table coming soon - columns: Identity (4) + selected column groups
-        </div>
+        <table className="w-full border-collapse text-left">
+          <thead>
+            <tr className="border-b border-white border-opacity-10">
+              <th className="py-2 px-3 text-xs font-black text-slate-600 uppercase tracking-wider text-left">Player</th>
+              <th className="py-2 px-3 text-xs font-black text-slate-600 uppercase tracking-wider text-left">Character</th>
+              <th className="py-2 px-3 text-xs font-black text-slate-600 uppercase tracking-wider text-center">iLvl</th>
+              <th className="py-2 px-3 text-xs font-black text-slate-600 uppercase tracking-wider text-center">M+</th>
+
+              {isGroupEnabled('greatVault') && (
+                <>
+                  <th colSpan={9} className="py-2 px-3 text-xs font-black text-amber-500 opacity-60 uppercase tracking-wider text-center border-l border-white border-opacity-5">Great Vault</th>
+                </>
+              )}
+
+              {isGroupEnabled('trackDist') && (
+                <>
+                  <th colSpan={6} className="py-2 px-3 text-xs font-black text-cyan-500 opacity-60 uppercase tracking-wider text-center border-l border-white border-opacity-5">Tracks</th>
+                </>
+              )}
+
+              {isGroupEnabled('gearStats') && (
+                <>
+                  <th colSpan={3} className="py-2 px-3 text-xs font-black text-slate-600 uppercase tracking-wider text-center border-l border-white border-opacity-5">Gear</th>
+                </>
+              )}
+
+              {isGroupEnabled('statDist') && (
+                <>
+                  <th colSpan={4} className="py-2 px-3 text-xs font-black text-slate-600 uppercase tracking-wider text-center border-l border-white border-opacity-5">Stats %</th>
+                </>
+              )}
+
+              {isGroupEnabled('enchants') && (
+                <>
+                  <th colSpan={8} className="py-2 px-3 text-xs font-black text-slate-600 uppercase tracking-wider text-center border-l border-white border-opacity-5">Enchants</th>
+                </>
+              )}
+
+              {isGroupEnabled('slotAudit') && (
+                <>
+                  <th colSpan={SLOT_ORDER.length} className="py-2 px-3 text-xs font-black text-slate-600 uppercase tracking-wider text-center border-l border-white border-opacity-5">Slots</th>
+                </>
+              )}
+            </tr>
+          </thead>
+          <tbody>
+            {characters.map(({ char, player, isMain }, idx) => {
+              const gearBySlot = getGearBySlot(char.gear);
+              const tierCount = char.gear?.filter(g => g.tier).length || 0;
+              const enchantedSlots = ENCHANTABLE_SLOTS.filter(slot => gearBySlot[slot]?.enchant);
+              const gemSlots = char.gear?.filter(g => g.gems && g.gems.length > 0).length || 0;
+
+              const trackCounts = {
+                mythic: char.gear?.filter(g => g.upgradeTrack?.toLowerCase() === 'mythic').length || 0,
+                hero: char.gear?.filter(g => g.upgradeTrack?.toLowerCase() === 'hero').length || 0,
+                champion: char.gear?.filter(g => g.upgradeTrack?.toLowerCase() === 'champion').length || 0,
+                veteran: char.gear?.filter(g => g.upgradeTrack?.toLowerCase() === 'veteran').length || 0,
+                adventurer: char.gear?.filter(g => g.upgradeTrack?.toLowerCase() === 'adventurer').length || 0,
+                explorer: char.gear?.filter(g => g.upgradeTrack?.toLowerCase() === 'explorer').length || 0
+              };
+
+              const stats = char.stats || { crit: 0, haste: 0, mastery: 0, versatility: 0 };
+              const gv = char.greatVault;
+
+              return (
+                <tr key={`${player.id}-${char.name}-${idx}`} className="border-b border-white border-opacity-5 hover:bg-white hover:bg-opacity-5 transition-colors">
+                  <td className="py-2 px-3">
+                    <div className="flex items-center gap-2">
+                      <RoleIcon role={player.role} />
+                      <span className="text-xs font-bold text-slate-400 truncate max-w-[100px]">{player.name}</span>
+                      {!isMain && <span className="text-xs text-slate-600 uppercase">Alt</span>}
+                    </div>
+                  </td>
+                  <td className="py-2 px-3">
+                    <div className="flex items-center gap-2">
+                      {char.thumbnailUrl && <img src={char.thumbnailUrl} className="w-5 h-5 rounded border border-white border-opacity-10" alt="" />}
+                      <span className="text-xs font-black" style={{ color: CLASS_COLORS[char.className] }}>{char.name}</span>
+                    </div>
+                  </td>
+                  <td className="py-2 px-3 text-center text-xs font-black text-white">{char.itemLevel}</td>
+                  <td className="py-2 px-3 text-center text-xs font-black text-amber-500">{char.mPlusRating || '-'}</td>
+
+                  {isGroupEnabled('greatVault') && (
+                    <>
+                      {[0, 1, 2].map(i => (
+                        <td key={`r${i}`} className="py-2 px-2 text-center text-xs border-l border-white border-opacity-5">
+                          <span className={gv?.raid[i]?.available ? 'text-amber-400 font-bold' : 'text-slate-700'}>{gv?.raid[i]?.itemLevel || '-'}</span>
+                        </td>
+                      ))}
+                      {[0, 1, 2].map(i => (
+                        <td key={`d${i}`} className="py-2 px-2 text-center text-xs">
+                          <span className={gv?.dungeon[i]?.available ? 'text-blue-400 font-bold' : 'text-slate-700'}>{gv?.dungeon[i]?.itemLevel || '-'}</span>
+                        </td>
+                      ))}
+                      {[0, 1, 2].map(i => (
+                        <td key={`w${i}`} className="py-2 px-2 text-center text-xs">
+                          <span className={gv?.world[i]?.available ? 'text-emerald-400 font-bold' : 'text-slate-700'}>{gv?.world[i]?.itemLevel || '-'}</span>
+                        </td>
+                      ))}
+                    </>
+                  )}
+
+                  {isGroupEnabled('trackDist') && (
+                    <>
+                      <td className="py-2 px-2 text-center text-xs border-l border-white border-opacity-5">
+                        <span className={trackCounts.mythic > 0 ? 'text-purple-400 font-black' : 'text-slate-700'}>{trackCounts.mythic || '-'}</span>
+                      </td>
+                      <td className="py-2 px-2 text-center text-xs">
+                        <span className={trackCounts.hero > 0 ? 'text-blue-400 font-black' : 'text-slate-700'}>{trackCounts.hero || '-'}</span>
+                      </td>
+                      <td className="py-2 px-2 text-center text-xs">
+                        <span className={trackCounts.champion > 0 ? 'text-emerald-400' : 'text-slate-700'}>{trackCounts.champion || '-'}</span>
+                      </td>
+                      <td className="py-2 px-2 text-center text-xs">
+                        <span className={trackCounts.veteran > 0 ? 'text-amber-400' : 'text-slate-700'}>{trackCounts.veteran || '-'}</span>
+                      </td>
+                      <td className="py-2 px-2 text-center text-xs">
+                        <span className={trackCounts.adventurer > 0 ? 'text-slate-400' : 'text-slate-700'}>{trackCounts.adventurer || '-'}</span>
+                      </td>
+                      <td className="py-2 px-2 text-center text-xs">
+                        <span className={trackCounts.explorer > 0 ? 'text-slate-600' : 'text-slate-700'}>{trackCounts.explorer || '-'}</span>
+                      </td>
+                    </>
+                  )}
+
+                  {isGroupEnabled('gearStats') && (
+                    <>
+                      <td className="py-2 px-2 text-center text-xs border-l border-white border-opacity-5">
+                        <span className={tierCount >= 4 ? 'text-emerald-500 font-black' : tierCount >= 2 ? 'text-amber-400 font-black' : 'text-slate-500 font-black'}>{tierCount}/5</span>
+                      </td>
+                      <td className="py-2 px-2 text-center text-xs">
+                        <span className={enchantedSlots.length === ENCHANTABLE_SLOTS.length ? 'text-emerald-400 font-bold' : 'text-red-400 font-bold'}>{enchantedSlots.length}/{ENCHANTABLE_SLOTS.length}</span>
+                      </td>
+                      <td className="py-2 px-2 text-center text-xs">
+                        <span className={gemSlots > 0 ? 'text-cyan-400 font-bold' : 'text-slate-700'}>{gemSlots}</span>
+                      </td>
+                    </>
+                  )}
+
+                  {isGroupEnabled('statDist') && (
+                    <>
+                      <td className="py-2 px-2 text-center text-xs text-white font-black border-l border-white border-opacity-5">{stats.crit.toFixed(1)}%</td>
+                      <td className="py-2 px-2 text-center text-xs text-white font-black">{stats.haste.toFixed(1)}%</td>
+                      <td className="py-2 px-2 text-center text-xs text-white font-black">{stats.mastery.toFixed(1)}%</td>
+                      <td className="py-2 px-2 text-center text-xs text-white font-black">{stats.versatility.toFixed(1)}%</td>
+                    </>
+                  )}
+
+                  {isGroupEnabled('enchants') && (
+                    <>
+                      {ENCHANTABLE_SLOTS.map(slot => (
+                        <td key={slot} className="py-2 px-2 text-center border-l border-white border-opacity-5">
+                          <StatusCell good={!!gearBySlot[slot]?.enchant} />
+                        </td>
+                      ))}
+                    </>
+                  )}
+
+                  {isGroupEnabled('slotAudit') && SLOT_ORDER.map(slot => {
+                    const item = gearBySlot[slot];
+                    return (
+                      <td key={slot} className="py-2 px-2 text-center border-l border-white border-opacity-5">
+                        {item ? (
+                          <div className="flex flex-col">
+                            <span className={item.itemLevel >= 626 ? 'text-purple-400 text-xs font-black' : item.itemLevel >= 613 ? 'text-cyan-400 text-xs font-black' : 'text-slate-400 text-xs font-black'}>{item.itemLevel}</span>
+                            <span className="text-xs text-slate-500 opacity-60">{getTrackShort(item.upgradeTrack)}</span>
+                          </div>
+                        ) : (
+                          <span className="text-slate-700">-</span>
+                        )}
+                      </td>
+                    );
+                  })}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
     </div>
   );

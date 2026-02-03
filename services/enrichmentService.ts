@@ -219,7 +219,7 @@ export const parsePvPStats = async (token: string, realm: string, name: string):
     const honorLevel = summary.honor_level || 0;
     const honorableKills = summary.honorable_kills || 0;
 
-    const brackets = ['2v2', '3v3', 'rbg'];
+    const brackets = ['2v2', '3v3', 'rated-battlegrounds'];
     const ratings: any = { solo: 0, twos: 0, threes: 0, rbg: 0 };
     const highestRatings: any = { solo: 0, twos: 0, threes: 0, rbg: 0 };
     const gamesThisSeason: any = { solo: 0, twos: 0, threes: 0, rbg: 0 };

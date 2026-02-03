@@ -51,6 +51,58 @@ export interface GearItem {
   gems?: string[];
   bonusIds?: number[];
   tier?: boolean;
+  upgradeTrack?: string;
+  upgradeLevel?: string;
+}
+
+export interface GreatVaultSlot {
+  itemLevel: number;
+  available: boolean;
+}
+
+export interface GreatVault {
+  raid: GreatVaultSlot[];
+  dungeon: GreatVaultSlot[];
+  world: GreatVaultSlot[];
+}
+
+export interface UpgradeTrackDistribution {
+  mythic: number;
+  hero: number;
+  champion: number;
+  veteran: number;
+  adventurer: number;
+  explorer: number;
+}
+
+export interface CrestProgress {
+  weathered: number;
+  carved: number;
+  runed: number;
+  gilded: number;
+}
+
+export interface MythicPlusSeasonStats {
+  dungeonsDone: number;
+  dungeonsDoneThisWeek: number;
+  highestKey: number;
+  rating: number;
+}
+
+export interface PvPRating {
+  solo: number;
+  twos: number;
+  threes: number;
+  rbg: number;
+}
+
+export interface PvPStats {
+  honorLevel: number;
+  honorableKills: number;
+  currentRating: PvPRating;
+  highestRating: PvPRating;
+  gamesThisSeason: PvPRating;
+  gamesThisWeek: PvPRating;
 }
 
 export interface CharacterStats {
@@ -103,6 +155,17 @@ export interface Character {
   talentLoadout?: string;
   achievementPoints?: number;
   honorableKills?: number;
+  greatVault?: GreatVault;
+  upgradeTrackDistribution?: UpgradeTrackDistribution;
+  crests?: CrestProgress;
+  valorstones?: number;
+  mythicPlusSeasonStats?: MythicPlusSeasonStats;
+  pvpStats?: PvPStats;
+  professions?: string[];
+  mountsOwned?: number;
+  toysOwned?: number;
+  petsOwned?: number;
+  titlesOwned?: number;
 }
 
 export interface Player {

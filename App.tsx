@@ -4,19 +4,18 @@ import { INITIAL_ROSTER } from './constants';
 import { Player, MemberMapping, PlayerRole, SplitGroup } from './types';
 import { RosterTable } from './components/RosterTable';
 import { StatOverview } from './components/StatOverview';
-import { GeminiAnalyzer } from './components/GeminiAnalyzer';
 import { AnalyticsDashboard } from './components/AnalyticsDashboard';
 import { SplitSetup } from './components/SplitSetup';
 import { Settings } from './components/Settings';
 import { fetchRosterFromSheet, fetchSplitsFromSheet } from './services/spreadsheetService';
 import { fetchRaiderIOData } from './services/raiderioService';
-import { LayoutGrid, Users, Trophy, Sword, RefreshCw, Settings as SettingsIcon, AlertTriangle, Zap, Split } from 'lucide-react';
+import { LayoutGrid, Users, Sword, RefreshCw, Settings as SettingsIcon, AlertTriangle, Zap, Split } from 'lucide-react';
 
 const App: React.FC = () => {
   const [roster, setRoster] = useState<Player[]>(INITIAL_ROSTER);
   const [splits, setSplits] = useState<SplitGroup[]>([]);
   const [minIlvl, setMinIlvl] = useState<number>(615);
-  const [activeTab, setActiveTab] = useState<'roster' | 'analytics' | 'splits' | 'strategy' | 'settings'>('roster');
+  const [activeTab, setActiveTab] = useState<'roster' | 'analytics' | 'splits' | 'settings'>('roster');
   const [isUpdating, setIsUpdating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState<string>("Nie");
@@ -111,14 +110,7 @@ const App: React.FC = () => {
             <LayoutGrid size={16} />
             Performance
           </button>
-          <button 
-            onClick={() => setActiveTab('strategy')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${activeTab === 'strategy' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'text-slate-500 hover:bg-white/5 hover:text-white'}`}
-          >
-            <Trophy size={16} />
-            AI Strategy
-          </button>
-          <button 
+          <button
             onClick={() => setActiveTab('settings')}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${activeTab === 'settings' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'text-slate-500 hover:bg-white/5 hover:text-white'}`}
           >
@@ -149,7 +141,6 @@ const App: React.FC = () => {
               {activeTab === 'roster' && 'Guild Roster'}
               {activeTab === 'splits' && 'Split Setup'}
               {activeTab === 'analytics' && 'Analytics'}
-              {activeTab === 'strategy' && 'AI Strategist'}
               {activeTab === 'settings' && 'Guild Settings'}
             </h2>
           </div>
@@ -189,7 +180,6 @@ const App: React.FC = () => {
             </div>
           )}
           
-          {activeTab === 'strategy' && <GeminiAnalyzer roster={roster} />}
           {activeTab === 'settings' && <Settings />}
         </div>
       </main>

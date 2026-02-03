@@ -2,7 +2,7 @@
 import React from 'react';
 import { FileSpreadsheet, ExternalLink } from 'lucide-react';
 
-const SPREADSHEET_WEB_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vS8AIcE-2b-IJohqlFiUCp0laqabWOptLdAk1OpL9o8LptWglWr2rMwnV-7YM6dwwGiEO9ruz7triLa/pubhtml";
+const SPREADSHEET_WEB_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vS8AIcE-2b-IJohqlFiUCp0laqabWOptLdAk1OpL9o8LptWglWr2rMwnV-7YM6dwwGiEO9ruz7triLa/pubhtml?widget=true&headers=false";
 
 
 export const Settings: React.FC = () => {
@@ -32,10 +32,13 @@ export const Settings: React.FC = () => {
         </div>
 
         <div className="rounded-xl border border-white/10 overflow-hidden bg-black h-[600px] relative group">
-          <iframe 
-            src={SPREADSHEET_WEB_URL} 
+          <iframe
+            src={SPREADSHEET_WEB_URL}
             className="w-full h-full border-none opacity-80 group-hover:opacity-100 transition-opacity"
             title="Guild Spreadsheet"
+            sandbox="allow-scripts allow-same-origin"
+            loading="lazy"
+            referrerPolicy="no-referrer-when-downgrade"
           />
           <div className="absolute inset-0 pointer-events-none border-2 border-indigo-500/10 rounded-xl"></div>
         </div>

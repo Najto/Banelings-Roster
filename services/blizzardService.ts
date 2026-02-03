@@ -173,3 +173,39 @@ export const getItemDetails = async (token: string, itemId: number): Promise<{ n
   const url = `https://${REGION}.api.blizzard.com/data/wow/item/${itemId}?namespace=static-${REGION}&locale=${LOCALE}`;
   return fetchBlizzardAPI(token, url);
 };
+
+export const getCharacterCurrencies = async (token: string, realm: string, name: string): Promise<any | null> => {
+  const realmSlug = normalizeRealmForAPI(realm);
+  const url = `https://${REGION}.api.blizzard.com/profile/wow/character/${realmSlug}/${name.toLowerCase()}/currencies?namespace=${NAMESPACE}&locale=${LOCALE}`;
+  return fetchBlizzardAPI(token, url);
+};
+
+export const getCharacterQuests = async (token: string, realm: string, name: string): Promise<any | null> => {
+  const realmSlug = normalizeRealmForAPI(realm);
+  const url = `https://${REGION}.api.blizzard.com/profile/wow/character/${realmSlug}/${name.toLowerCase()}/quests?namespace=${NAMESPACE}&locale=${LOCALE}`;
+  return fetchBlizzardAPI(token, url);
+};
+
+export const getCharacterCompletedQuests = async (token: string, realm: string, name: string): Promise<any | null> => {
+  const realmSlug = normalizeRealmForAPI(realm);
+  const url = `https://${REGION}.api.blizzard.com/profile/wow/character/${realmSlug}/${name.toLowerCase()}/quests/completed?namespace=${NAMESPACE}&locale=${LOCALE}`;
+  return fetchBlizzardAPI(token, url);
+};
+
+export const getCharacterReputations = async (token: string, realm: string, name: string): Promise<any | null> => {
+  const realmSlug = normalizeRealmForAPI(realm);
+  const url = `https://${REGION}.api.blizzard.com/profile/wow/character/${realmSlug}/${name.toLowerCase()}/reputations?namespace=${NAMESPACE}&locale=${LOCALE}`;
+  return fetchBlizzardAPI(token, url);
+};
+
+export const getCharacterProfessions = async (token: string, realm: string, name: string): Promise<any | null> => {
+  const realmSlug = normalizeRealmForAPI(realm);
+  const url = `https://${REGION}.api.blizzard.com/profile/wow/character/${realmSlug}/${name.toLowerCase()}/professions?namespace=${NAMESPACE}&locale=${LOCALE}`;
+  return fetchBlizzardAPI(token, url);
+};
+
+export const getCharacterMedia = async (token: string, realm: string, name: string): Promise<any | null> => {
+  const realmSlug = normalizeRealmForAPI(realm);
+  const url = `https://${REGION}.api.blizzard.com/profile/wow/character/${realmSlug}/${name.toLowerCase()}/character-media?namespace=${NAMESPACE}&locale=${LOCALE}`;
+  return fetchBlizzardAPI(token, url);
+};

@@ -7,7 +7,11 @@ import {
   CrestProgress,
   PvPStats,
   PvPRating,
-  MPlusRun
+  MPlusRun,
+  WorldProgress,
+  Reputation,
+  Collections,
+  RaidAchievements
 } from '../types';
 import * as BlizzardAPI from './blizzardService';
 
@@ -28,6 +32,11 @@ const CREST_CURRENCY_IDS = {
 };
 
 const VALORSTONE_CURRENCY_ID = 2245;
+
+const EMBELLISHMENT_BONUS_IDS = new Set([
+  10222, 10223, 10224, 10225, 10226, 10227, 10228, 10229, 10230,
+  10532, 10533, 10534
+]);
 
 const TIER_ITEM_IDS = new Set([
   212072, 212073, 212074, 212075, 212076,
@@ -92,6 +101,8 @@ export const enrichGearWithTracks = async (equipmentData: BlizzardAPI.BlizzardEq
         }
       }
 
+      const isEmbellished = bonusIds.some(id => EMBELLISHMENT_BONUS_IDS.has(id));
+
       return {
         slot: slotKey,
         name: itemName,
@@ -101,7 +112,8 @@ export const enrichGearWithTracks = async (equipmentData: BlizzardAPI.BlizzardEq
         gems,
         bonusIds,
         tier: isTier,
-        upgradeTrack
+        upgradeTrack,
+        isEmbellished
       };
     })
   );
@@ -267,6 +279,146 @@ export const parsePvPStats = async (token: string, realm: string, name: string):
   }
 };
 
+export const parseCurrencies = async (token: string, realm: string, name: string): Promise<{ crests: CrestProgress; valorstones: number }> => {
+  try {
+    const currencyData = await BlizzardAPI.getCharacterCurrencies(token, realm, name);
+    if (!currencyData?.currency_types) {
+      return {
+        crests: { weathered: 0, carved: 0, runed: 0, gilded: 0 },
+        valorstones: 0
+      };
+    }
+
+    const currencies = currencyData.currency_types;
+    const crests: CrestProgress = {
+      weathered: currencies.find((c: any) => c.id === CREST_CURRENCY_IDS.weathered)?.quantity || 0,
+      carved: currencies.find((c: any) => c.id === CREST_CURRENCY_IDS.carved)?.quantity || 0,
+      runed: currencies.find((c: any) => c.id === CREST_CURRENCY_IDS.runed)?.quantity || 0,
+      gilded: currencies.find((c: any) => c.id === CREST_CURRENCY_IDS.gilded)?.quantity || 0
+    };
+
+    const valorstones = currencies.find((c: any) => c.id === VALORSTONE_CURRENCY_ID)?.quantity || 0;
+
+    return { crests, valorstones };
+  } catch (error) {
+    console.error(`Failed to fetch currencies for ${name}-${realm}:`, error);
+    return {
+      crests: { weathered: 0, carved: 0, runed: 0, gilded: 0 },
+      valorstones: 0
+    };
+  }
+};
+
+export const parseReputations = async (token: string, realm: string, name: string): Promise<Reputation[]> => {
+  try {
+    const repData = await BlizzardAPI.getCharacterReputations(token, realm, name);
+    if (!repData?.reputations) return [];
+
+    const TWW_FACTION_IDS = [2570, 2590, 2594, 2600, 2601, 2605, 2607];
+
+    return repData.reputations
+      .filter((rep: any) => TWW_FACTION_IDS.includes(rep.faction.id))
+      .map((rep: any) => ({
+        name: rep.faction.name,
+        standing: rep.standing.value || 0,
+        max: rep.standing.max || 1,
+        standingName: rep.standing.name || 'Unknown',
+        paragonProgress: rep.paragon?.value
+      }));
+  } catch (error) {
+    console.error(`Failed to fetch reputations for ${name}-${realm}:`, error);
+    return [];
+  }
+};
+
+export const parseCollections = async (token: string, realm: string, name: string): Promise<Collections> => {
+  try {
+    const [collectionsData, achievementsData] = await Promise.all([
+      BlizzardAPI.getCharacterCollections(token, realm, name),
+      BlizzardAPI.getCharacterAchievements(token, realm, name)
+    ]);
+
+    return {
+      mounts: collectionsData?.mounts?.collected?.length || 0,
+      pets: collectionsData?.pets?.collected?.length || 0,
+      toys: collectionsData?.toys?.collected?.length || 0,
+      achievements: achievementsData?.total_points || 0,
+      titles: achievementsData?.achievements?.filter((a: any) => a.criteria?.is_completed && a.reward?.title).length || 0
+    };
+  } catch (error) {
+    console.error(`Failed to fetch collections for ${name}-${realm}:`, error);
+    return { mounts: 0, pets: 0, toys: 0, achievements: 0, titles: 0 };
+  }
+};
+
+export const parseRaidAchievements = async (token: string, realm: string, name: string): Promise<RaidAchievements> => {
+  try {
+    const achievementsData = await BlizzardAPI.getCharacterAchievements(token, realm, name);
+    if (!achievementsData?.achievements) return {};
+
+    const achievements = achievementsData.achievements;
+
+    const CE_NERUB_AR = 40231;
+    const AOTC_NERUB_AR = 40230;
+
+    const cuttingEdge = achievements.find((a: any) => a.id === CE_NERUB_AR)?.completed_timestamp;
+    const aheadOfTheCurve = achievements.find((a: any) => a.id === AOTC_NERUB_AR)?.completed_timestamp;
+
+    return {
+      cuttingEdge: cuttingEdge ? new Date(cuttingEdge).toLocaleDateString() : undefined,
+      aheadOfTheCurve: aheadOfTheCurve ? new Date(aheadOfTheCurve).toLocaleDateString() : undefined
+    };
+  } catch (error) {
+    console.error(`Failed to fetch raid achievements for ${name}-${realm}:`, error);
+    return {};
+  }
+};
+
+export const parseWorldProgress = async (token: string, realm: string, name: string): Promise<WorldProgress> => {
+  try {
+    const completedQuests = await BlizzardAPI.getCharacterCompletedQuests(token, realm, name);
+
+    const progress: WorldProgress = {
+      worldQuestsDone: completedQuests?.quests?.length || 0,
+      theaterTroupe: 0,
+      awakeningTheMachine: 0,
+      severedThreads: 0,
+      remembranceProgress: 0,
+      delvesDone: 0,
+      cofferKeys: 0,
+      heroicDungeons: 0,
+      mythicDungeons: 0
+    };
+
+    return progress;
+  } catch (error) {
+    console.error(`Failed to fetch world progress for ${name}-${realm}:`, error);
+    return {};
+  }
+};
+
+export const parseProfessions = async (token: string, realm: string, name: string): Promise<string[]> => {
+  try {
+    const professionsData = await BlizzardAPI.getCharacterProfessions(token, realm, name);
+    if (!professionsData) return [];
+
+    const professions: string[] = [];
+
+    if (professionsData.primaries) {
+      professionsData.primaries.forEach((prof: any) => {
+        if (prof.profession?.name) {
+          professions.push(`${prof.profession.name} (${prof.skill_points || 0}/${prof.max_skill_points || 0})`);
+        }
+      });
+    }
+
+    return professions;
+  } catch (error) {
+    console.error(`Failed to fetch professions for ${name}-${realm}:`, error);
+    return [];
+  }
+};
+
 export const enrichCharacterData = async (
   baseCharacter: Partial<Character>,
   token: string,
@@ -275,14 +427,32 @@ export const enrichCharacterData = async (
 ): Promise<Partial<Character>> => {
   const enriched = { ...baseCharacter };
 
-  const [equipmentData, statsData] = await Promise.all([
+  const [
+    equipmentData,
+    statsData,
+    currencyData,
+    reputations,
+    collections,
+    raidAchievements,
+    worldProgress,
+    professions
+  ] = await Promise.all([
     BlizzardAPI.getCharacterEquipment(token, realm, name),
-    BlizzardAPI.getCharacterStats(token, realm, name)
+    BlizzardAPI.getCharacterStats(token, realm, name),
+    parseCurrencies(token, realm, name),
+    parseReputations(token, realm, name),
+    parseCollections(token, realm, name),
+    parseRaidAchievements(token, realm, name),
+    parseWorldProgress(token, realm, name),
+    parseProfessions(token, realm, name)
   ]);
 
   if (equipmentData) {
     enriched.gear = await enrichGearWithTracks(equipmentData, token);
     enriched.upgradeTrackDistribution = calculateUpgradeTrackDistribution(enriched.gear);
+
+    const embellishedItems = enriched.gear.filter(item => item.isEmbellished);
+    enriched.embellishments = embellishedItems.map(item => item.name);
   }
 
   if (statsData) {
@@ -302,6 +472,14 @@ export const enrichCharacterData = async (
   if (pvpStats) {
     enriched.pvpStats = pvpStats;
   }
+
+  enriched.crests = currencyData.crests;
+  enriched.valorstones = currencyData.valorstones;
+  enriched.reputations = reputations;
+  enriched.collections = collections;
+  enriched.raidAchievements = raidAchievements;
+  enriched.worldProgress = worldProgress;
+  enriched.professions = professions;
 
   return enriched;
 };

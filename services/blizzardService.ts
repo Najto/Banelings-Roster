@@ -9,11 +9,7 @@ const NAMESPACE = 'profile-eu';
 const LOCALE = 'en_GB';
 
 const normalizeRealmForAPI = (realm: string): string => {
-  const normalized = realm.toLowerCase().replace(/\s+/g, '-').replace(/'/g, '');
-  if (!normalized.endsWith(`-${REGION}`)) {
-    return `${normalized}-${REGION}`;
-  }
-  return normalized;
+  return realm.toLowerCase().replace(/\s+/g, '-').replace(/'/g, '');
 };
 
 export interface BlizzardCharData {

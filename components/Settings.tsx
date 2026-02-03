@@ -20,7 +20,7 @@ export const Settings: React.FC = () => {
             </div>
           </div>
           <a 
-            href="https://docs.google.com/spreadsheets/d/1vS8AIcE-2b-IJohqlFiUCp0laqabWOptLdAk1OpL9o8LptWglWr2rMwnV-7YM6dwwGiEO9ruz7triLa/edit" 
+            href="https://docs.google.com/spreadsheets/d/1zahCGbnowtqnmn2G82lZ6xVXGycjJlBRXAdvLymqapw" 
             target="_blank" 
             rel="noreferrer"
             className="bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 transition-all shadow-lg shadow-emerald-600/20"

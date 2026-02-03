@@ -7,11 +7,13 @@ import { StatOverview } from './components/StatOverview';
 import { AnalyticsDashboard } from './components/AnalyticsDashboard';
 import { SplitSetup } from './components/SplitSetup';
 import { Settings } from './components/Settings';
-import { fetchRosterFromSheet, fetchSplitsFromSheet, enrichRosterWithAPIData } from './services/spreadsheetService';
+import { fetchRosterFromSheet, fetchSplitsFromSheet } from './services/spreadsheetService';
 import { fetchBlizzardToken } from './services/blizzardService';
+import { enrichRosterWithDatabase, loadRosterFromDatabase, EnrichmentProgress } from './services/characterEnrichmentService';
+import { isDataStale, getEnrichmentMetadata } from './services/databaseService';
 import { CharacterDetailView } from './components/CharacterDetailView';
 import { Audit } from './components/Audit';
-import { LayoutGrid, Users, RefreshCw, Settings as SettingsIcon, AlertTriangle, Zap, Split, List, User, ClipboardCheck } from 'lucide-react';
+import { LayoutGrid, Users, RefreshCw, Settings as SettingsIcon, AlertTriangle, Zap, Split, List, User, ClipboardCheck, Clock } from 'lucide-react';
 
 const App: React.FC = () => {
   const [roster, setRoster] = useState<Player[]>(INITIAL_ROSTER);
@@ -22,7 +24,9 @@ const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState<string>("Nie");
   const [rosterViewMode, setRosterViewMode] = useState<'table' | 'detail'>('table');
-  const [enrichmentProgress, setEnrichmentProgress] = useState<{ current: number; total: number } | null>(null);
+  const [enrichmentProgress, setEnrichmentProgress] = useState<EnrichmentProgress | null>(null);
+  const [isLoadingFromDB, setIsLoadingFromDB] = useState(true);
+  const [nextRefreshTime, setNextRefreshTime] = useState<Date | null>(null);
 
   const enrichWithFullAPIData = useCallback(async (baseRoster: Player[]) => {
     const mappings: MemberMapping[] = JSON.parse(localStorage.getItem('guild_mappings') || "[]");
@@ -33,11 +37,11 @@ const App: React.FC = () => {
       return baseRoster;
     }
 
-    const enrichedRoster = await enrichRosterWithAPIData(
+    const enrichedRoster = await enrichRosterWithDatabase(
       baseRoster,
       token,
-      (current, total) => {
-        setEnrichmentProgress({ current, total });
+      (progress) => {
+        setEnrichmentProgress(progress);
       }
     );
 
@@ -53,9 +57,40 @@ const App: React.FC = () => {
     });
 
     setRoster(finalRoster);
+
+    const metadata = await getEnrichmentMetadata();
+    if (metadata?.last_enriched_at) {
+      const nextRefresh = new Date(new Date(metadata.last_enriched_at).getTime() + 60 * 60 * 1000);
+      setNextRefreshTime(nextRefresh);
+      setLastUpdate(new Date(metadata.last_enriched_at).toLocaleTimeString());
+    }
   }, []);
 
-  const syncWithSheet = useCallback(async () => {
+  const loadFromDatabase = useCallback(async (baseRoster: Player[]) => {
+    const mappings: MemberMapping[] = JSON.parse(localStorage.getItem('guild_mappings') || "[]");
+
+    const rosterFromDB = await loadRosterFromDatabase(baseRoster);
+
+    const finalRoster = rosterFromDB.map(player => {
+      const mapping = mappings.find(m => m.memberName.toLowerCase() === player.name.toLowerCase());
+      const finalRole = (mapping && mapping.role && mapping.role !== PlayerRole.UNKNOWN)
+        ? mapping.role
+        : player.role;
+
+      return { ...player, role: finalRole };
+    });
+
+    setRoster(finalRoster);
+
+    const metadata = await getEnrichmentMetadata();
+    if (metadata?.last_enriched_at) {
+      const nextRefresh = new Date(new Date(metadata.last_enriched_at).getTime() + 60 * 60 * 1000);
+      setNextRefreshTime(nextRefresh);
+      setLastUpdate(new Date(metadata.last_enriched_at).toLocaleTimeString());
+    }
+  }, []);
+
+  const syncWithSheet = useCallback(async (forceRefresh: boolean = false) => {
     setIsUpdating(true);
     setError(null);
     try {
@@ -64,25 +99,64 @@ const App: React.FC = () => {
         fetchSplitsFromSheet()
       ]);
 
-      if (rosterResult.roster.length > 0) {
-        setRoster(rosterResult.roster);
-        await enrichWithFullAPIData(rosterResult.roster);
-      }
-
       setSplits(splitsResult);
       setMinIlvl(rosterResult.minIlvl);
-      setLastUpdate(new Date().toLocaleTimeString());
+
+      if (rosterResult.roster.length > 0) {
+        const dataIsStale = await isDataStale(60);
+
+        if (forceRefresh || dataIsStale) {
+          await enrichWithFullAPIData(rosterResult.roster);
+        } else {
+          await loadFromDatabase(rosterResult.roster);
+        }
+      }
     } catch (e) {
       setError("Synchronisierung fehlgeschlagen.");
       console.error(e);
     } finally {
       setIsUpdating(false);
     }
-  }, [enrichWithFullAPIData]);
+  }, [enrichWithFullAPIData, loadFromDatabase]);
 
   useEffect(() => {
-    syncWithSheet();
-  }, [syncWithSheet]);
+    const initializeApp = async () => {
+      setIsLoadingFromDB(true);
+      try {
+        const rosterResult = await fetchRosterFromSheet();
+        setMinIlvl(rosterResult.minIlvl);
+
+        if (rosterResult.roster.length > 0) {
+          await loadFromDatabase(rosterResult.roster);
+        }
+
+        setIsLoadingFromDB(false);
+
+        const dataIsStale = await isDataStale(60);
+        if (dataIsStale) {
+          await syncWithSheet(true);
+        }
+      } catch (e) {
+        console.error('Failed to initialize app:', e);
+        setIsLoadingFromDB(false);
+        await syncWithSheet(true);
+      }
+    };
+
+    initializeApp();
+  }, []);
+
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      const dataIsStale = await isDataStale(60);
+      if (dataIsStale && !isUpdating) {
+        console.log('Auto-refreshing stale data...');
+        await syncWithSheet(true);
+      }
+    }, 5 * 60 * 1000);
+
+    return () => clearInterval(interval);
+  }, [isUpdating, syncWithSheet]);
 
   return (
     <div className="min-h-screen wow-gradient flex flex-col md:flex-row overflow-hidden h-screen text-slate-200">
@@ -156,13 +230,13 @@ const App: React.FC = () => {
               {activeTab === 'settings' && 'Guild Settings'}
             </h2>
           </div>
-          <button 
-            onClick={syncWithSheet}
+          <button
+            onClick={() => syncWithSheet(true)}
             disabled={isUpdating}
             className="bg-white/5 hover:bg-white/10 border border-white/10 text-white px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest flex items-center gap-2 transition-all active:scale-95 disabled:opacity-50"
           >
             <RefreshCw className={`${isUpdating ? 'animate-spin' : ''}`} size={16} />
-            Refresh Data
+            {isUpdating ? 'Refreshing...' : 'Refresh Data'}
           </button>
         </header>
 
@@ -173,10 +247,32 @@ const App: React.FC = () => {
           </div>
         )}
 
+        {isLoadingFromDB && (
+          <div className="mb-6 bg-blue-500/10 border border-blue-500/20 text-blue-400 px-4 py-3 rounded-xl text-xs font-bold flex items-center gap-3">
+            <Clock size={16} className="animate-pulse" />
+            Loading cached data from database...
+          </div>
+        )}
+
         {enrichmentProgress && (
-          <div className="mb-6 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-4 py-3 rounded-xl text-xs font-bold flex items-center gap-3">
-            <Zap size={16} className="animate-pulse" />
-            Enriching character data: {enrichmentProgress.current}/{enrichmentProgress.total}
+          <div className="mb-6 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-4 py-3 rounded-xl">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-3">
+                <Zap size={16} className="animate-pulse" />
+                <span className="text-xs font-bold">
+                  Enriching characters: {enrichmentProgress.processed}/{enrichmentProgress.total}
+                </span>
+              </div>
+              <span className="text-[10px]">
+                {enrichmentProgress.successful} successful · {enrichmentProgress.failed} failed · {enrichmentProgress.skipped} cached
+              </span>
+            </div>
+            <div className="w-full bg-black/40 rounded-full h-1.5 overflow-hidden">
+              <div
+                className="bg-emerald-500 h-1.5 transition-all duration-300 ease-out"
+                style={{ width: `${(enrichmentProgress.processed / enrichmentProgress.total) * 100}%` }}
+              />
+            </div>
           </div>
         )}
 

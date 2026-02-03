@@ -2,7 +2,7 @@
 import React from 'react';
 import { FileSpreadsheet, ExternalLink } from 'lucide-react';
 
-const SPREADSHEET_WEB_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vS8AIcE-2b-IJohqlFiUCp0laqabWOptLdAk1OpL9o8LptWglWr2rMwnV-7YM6dwwGiEO9ruz7triLa/pubhtml?gid=953594606&amp;single=true&amp;widget=true&amp;headers=false";
+const SPREADSHEET_WEB_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vS8AIcE-2b-IJohqlFiUCp0laqabWOptLdAk1OpL9o8LptWglWr2rMwnV-7YM6dwwGiEO9ruz7triLa/pubhtml";
 
 
 export const Settings: React.FC = () => {

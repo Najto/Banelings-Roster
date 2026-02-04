@@ -42,6 +42,9 @@ export const saveCharacterData = async (
 ): Promise<void> => {
   try {
     const normalizedRealm = normalizeRealm(character.server || '');
+
+    console.log(`💾 Saving character data: ${character.name}-${normalizedRealm} (status: ${status})`);
+
     const record: CharacterDataRecord = {
       character_name: character.name,
       realm: normalizedRealm,
@@ -57,18 +60,24 @@ export const saveCharacterData = async (
       updated_at: new Date().toISOString()
     };
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('character_data')
       .upsert(record, {
         onConflict: 'character_name,realm',
         ignoreDuplicates: false
-      });
+      })
+      .select();
 
     if (error) {
-      console.error('Failed to save character data:', error);
+      console.error('❌ Failed to save character data:', error);
+      console.error('Record that failed:', { character_name: character.name, realm: normalizedRealm });
+      throw error;
     }
+
+    console.log(`✅ Successfully saved character data: ${character.name}-${normalizedRealm}`);
   } catch (error) {
-    console.error('Error saving character data:', error);
+    console.error('❌ Error saving character data:', error);
+    throw error;
   }
 };
 

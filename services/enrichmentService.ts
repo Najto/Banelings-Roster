@@ -42,7 +42,20 @@ const TIER_ITEM_IDS = new Set([
   212072, 212073, 212074, 212075, 212076,
   212416, 212417, 212418, 212419, 212420,
   217223, 217224, 217225, 217226, 217227,
-  212000, 212005, 212001, 212002, 212003
+  212000, 212005, 212001, 212002, 212003,
+  211978, 211979, 211980, 211981, 211982,
+  211983, 211984, 211985, 211986, 211987,
+  211988, 211989, 211990, 211991, 211992,
+  211993, 211994, 211995, 211996, 211997,
+  211998, 211999, 212004, 212006, 212007,
+  229268, 229269, 229270, 229271, 229272,
+  229273, 229274, 229275, 229276, 229277,
+  229278, 229279, 229280, 229281, 229282
+]);
+
+const TIER_SET_BONUS_IDS = new Set([
+  10856, 10857, 10858, 10859, 10860, 10861, 10862, 10863,
+  10864, 10865, 10866, 10867, 10868, 10869, 10870, 10871
 ]);
 
 const SLOT_NAME_MAP: Record<string, string> = {
@@ -76,14 +89,19 @@ export const detectUpgradeTrack = (bonusIds: number[]): string | undefined => {
 };
 
 export const enrichGearWithTracks = async (equipmentData: BlizzardAPI.BlizzardEquipmentData, token?: string): Promise<GearItem[]> => {
-  if (!equipmentData?.equipped_items) return [];
+  if (!equipmentData?.equipped_items) {
+    console.log('⚠️ No equipped_items in equipment data');
+    return [];
+  }
+
+  console.log(`🛡️ Processing ${equipmentData.equipped_items.length} gear items`);
 
   const gearItems = await Promise.all(
     equipmentData.equipped_items.map(async item => {
       const slotKey = SLOT_NAME_MAP[item.slot.type] || item.slot.type.toLowerCase();
       const bonusIds = item.bonus_list || [];
       const upgradeTrack = detectUpgradeTrack(bonusIds);
-      const isTier = TIER_ITEM_IDS.has(item.item.id);
+      const isTier = TIER_ITEM_IDS.has(item.item.id) || bonusIds.some(id => TIER_SET_BONUS_IDS.has(id));
 
       const enchant = item.enchantments?.[0]?.display_string?.en_GB;
       const gems = item.sockets?.map(socket => socket.item.id.toString()) || [];
@@ -103,6 +121,10 @@ export const enrichGearWithTracks = async (equipmentData: BlizzardAPI.BlizzardEq
 
       const isEmbellished = bonusIds.some(id => EMBELLISHMENT_BONUS_IDS.has(id));
 
+      if (upgradeTrack) {
+        console.log(`  📦 ${slotKey}: iLvl ${item.level.value}, Track: ${upgradeTrack}, Tier: ${isTier}, Enchant: ${enchant ? 'Yes' : 'No'}, Gems: ${gems.length}`);
+      }
+
       return {
         slot: slotKey,
         name: itemName,
@@ -117,6 +139,18 @@ export const enrichGearWithTracks = async (equipmentData: BlizzardAPI.BlizzardEq
       };
     })
   );
+
+  const trackSummary = gearItems.reduce((acc, item) => {
+    if (item.upgradeTrack) {
+      acc[item.upgradeTrack] = (acc[item.upgradeTrack] || 0) + 1;
+    }
+    return acc;
+  }, {} as Record<string, number>);
+
+  console.log(`📊 Track distribution:`, trackSummary);
+  console.log(`🎯 Tier pieces: ${gearItems.filter(g => g.tier).length}/5`);
+  console.log(`✨ Enchanted: ${gearItems.filter(g => g.enchant).length}`);
+  console.log(`💎 Items with gems: ${gearItems.filter(g => g.gems.length > 0).length}`);
 
   return gearItems;
 };
@@ -448,15 +482,37 @@ export const enrichCharacterData = async (
   ]);
 
   if (equipmentData) {
-    enriched.gear = await enrichGearWithTracks(equipmentData, token);
+    console.log(`🛡️ Got Blizzard equipment data for ${name}, processing...`);
+    const blizzardGear = await enrichGearWithTracks(equipmentData, token);
+
+    if (baseCharacter.gear && baseCharacter.gear.length > 0) {
+      const rioGearBySlot = new Map(baseCharacter.gear.map(g => [g.slot, g]));
+      enriched.gear = blizzardGear.map(blizzItem => {
+        const rioItem = rioGearBySlot.get(blizzItem.slot);
+        return {
+          ...blizzItem,
+          tier: blizzItem.tier || (rioItem?.tier ?? false)
+        };
+      });
+    } else {
+      enriched.gear = blizzardGear;
+    }
+
     enriched.upgradeTrackDistribution = calculateUpgradeTrackDistribution(enriched.gear);
 
     const embellishedItems = enriched.gear.filter(item => item.isEmbellished);
     enriched.embellishments = embellishedItems.map(item => item.name);
+
+    console.log(`📊 Final gear stats: Tier ${enriched.gear.filter(g => g.tier).length}/5, Enchants: ${enriched.gear.filter(g => g.enchant).length}`);
+  } else {
+    console.log(`⚠️ No Blizzard equipment data for ${name}, keeping RIO gear`);
   }
 
   if (statsData) {
+    console.log(`📈 Stats for ${name}: Crit ${statsData.crit.toFixed(1)}%, Haste ${statsData.haste.toFixed(1)}%, Mastery ${statsData.mastery.toFixed(1)}%, Vers ${statsData.versatility.toFixed(1)}%`);
     enriched.stats = statsData;
+  } else {
+    console.log(`⚠️ No stats data for ${name}`);
   }
 
   if (baseCharacter.recentRuns && baseCharacter.raidProgress) {

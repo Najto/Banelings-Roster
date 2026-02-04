@@ -7,7 +7,7 @@ async function seedAdminUser() {
   const { data: existing } = await supabase
     .from('admin_users')
     .select('id')
-    .eq('email', 'admin@example.com')
+    .eq('email', 'admin')
     .maybeSingle();
 
   if (existing) {
@@ -18,8 +18,8 @@ async function seedAdminUser() {
   const { data, error } = await supabase
     .from('admin_users')
     .insert({
-      email: 'admin@example.com',
-      password_hash: 'admin123',
+      email: 'admin',
+      password_hash: 'admin',
       is_admin: true
     })
     .select()
@@ -227,8 +227,8 @@ async function main() {
 
     console.log('Audit system seed completed successfully!');
     console.log('\nDefault admin credentials:');
-    console.log('Email: admin@example.com');
-    console.log('Password: admin123');
+    console.log('Username: admin');
+    console.log('Password: admin');
     console.log('\nPlease change these credentials after first login!');
   } catch (error) {
     console.error('Error seeding audit system:', error);

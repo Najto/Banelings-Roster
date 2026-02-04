@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
-import { Lock, LogIn } from 'lucide-react';
+import { Lock, LogIn, X } from 'lucide-react';
 import { loginAdmin } from '../services/adminService';
 
 interface AdminLoginProps {
   onLoginSuccess: () => void;
+  onClose?: () => void;
 }
 
-export const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
+export const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess, onClose }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -30,7 +31,15 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-slate-900">
-      <div className="w-full max-w-md p-8 bg-slate-800 rounded-lg shadow-lg border border-slate-700">
+      <div className="w-full max-w-md p-8 bg-slate-800 rounded-lg shadow-lg border border-slate-700 relative">
+        {onClose && (
+          <button
+            onClick={onClose}
+            className="absolute top-4 right-4 p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded transition-colors"
+          >
+            <X size={20} />
+          </button>
+        )}
         <div className="flex items-center justify-center mb-6">
           <Lock className="text-blue-400 mr-2" size={32} />
           <h1 className="text-2xl font-bold text-white">Admin Login</h1>
@@ -39,14 +48,14 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">
-              Email
+              Username
             </label>
             <input
-              type="email"
+              type="text"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded text-white focus:outline-none focus:border-blue-400"
-              placeholder="admin@example.com"
+              placeholder="admin"
               required
               disabled={loading}
             />

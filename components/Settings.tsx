@@ -1,30 +1,47 @@
 
 import React, { useState } from 'react';
-import { FileSpreadsheet, ExternalLink, Lock, List, Settings as SettingsIcon } from 'lucide-react';
+import { FileSpreadsheet, ExternalLink, Lock, List, Settings as SettingsIcon, LogIn, LogOut, User } from 'lucide-react';
 import { useIsAdmin } from '../hooks/useAdmin';
 import { AccessDenied } from './AccessDenied';
 import { AuditColumnsSettings } from './AuditColumnsSettings';
 import { PresetManager } from './PresetManager';
+import { AdminLogin } from './AdminLogin';
+import { AdminProfile } from './AdminProfile';
 import { setActivePreset } from '../services/auditTableService';
+import { logoutAdmin } from '../services/adminService';
 
 const SPREADSHEET_WEB_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vS8AIcE-2b-IJohqlFiUCp0laqabWOptLdAk1OpL9o8LptWglWr2rMwnV-7YM6dwwGiEO9ruz7triLa/pubhtml?widget=true&headers=false";
 
-type Tab = 'spreadsheet' | 'audit-columns' | 'presets';
+type Tab = 'spreadsheet' | 'audit-columns' | 'presets' | 'admin-profile';
 
 export const Settings: React.FC = () => {
-  const { isAdmin, loading } = useIsAdmin();
+  const { isAdmin, loading, adminUser } = useIsAdmin();
   const [activeTab, setActiveTab] = useState<Tab>('spreadsheet');
   const [currentPresetId, setCurrentPresetId] = useState<string | undefined>();
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const handleLoadPreset = async (presetId: string) => {
     await setActivePreset(presetId);
     setCurrentPresetId(presetId);
   };
 
+  const handleLogout = () => {
+    logoutAdmin();
+    setRefreshKey(prev => prev + 1);
+    setActiveTab('spreadsheet');
+  };
+
+  const handleLoginSuccess = () => {
+    setShowLoginModal(false);
+    setRefreshKey(prev => prev + 1);
+  };
+
   const tabs: Array<{ id: Tab; label: string; icon: any; adminOnly: boolean }> = [
     { id: 'spreadsheet', label: 'Spreadsheet', icon: FileSpreadsheet, adminOnly: false },
     { id: 'audit-columns', label: 'Audit Columns', icon: SettingsIcon, adminOnly: true },
-    { id: 'presets', label: 'Presets', icon: List, adminOnly: true }
+    { id: 'presets', label: 'Presets', icon: List, adminOnly: true },
+    { id: 'admin-profile', label: 'Admin Profile', icon: User, adminOnly: true }
   ];
 
   if (loading) {
@@ -40,9 +57,36 @@ export const Settings: React.FC = () => {
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8 pb-20">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-white mb-2">Settings</h1>
-        <p className="text-slate-400">Manage your roster configuration and preferences</p>
+      <div className="mb-8 flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-white mb-2">Settings</h1>
+          <p className="text-slate-400">Manage your roster configuration and preferences</p>
+        </div>
+        <div>
+          {isAdmin ? (
+            <div className="flex items-center gap-3">
+              <div className="text-right">
+                <div className="text-sm text-slate-400">Logged in as</div>
+                <div className="text-white font-semibold">{adminUser?.email}</div>
+              </div>
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded transition-colors"
+              >
+                <LogOut size={18} />
+                Logout
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setShowLoginModal(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
+            >
+              <LogIn size={18} />
+              Admin Login
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="flex gap-2 mb-6 border-b border-slate-700">
@@ -123,9 +167,27 @@ export const Settings: React.FC = () => {
                 currentPresetId={currentPresetId}
               />
             )}
+
+            {activeTab === 'admin-profile' && adminUser && (
+              <AdminProfile
+                adminUser={adminUser}
+                onUpdate={() => setRefreshKey(prev => prev + 1)}
+              />
+            )}
           </>
         )}
       </div>
+
+      {showLoginModal && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50" onClick={() => setShowLoginModal(false)}>
+          <div onClick={(e) => e.stopPropagation()}>
+            <AdminLogin
+              onLoginSuccess={handleLoginSuccess}
+              onClose={() => setShowLoginModal(false)}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };

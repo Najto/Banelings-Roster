@@ -53,7 +53,6 @@ export interface GearItem {
   tier?: boolean;
   upgradeTrack?: string;
   upgradeLevel?: string;
-  isEmbellished?: boolean;
 }
 
 export interface GreatVaultSlot {
@@ -81,39 +80,6 @@ export interface CrestProgress {
   carved: number;
   runed: number;
   gilded: number;
-}
-
-export interface WorldProgress {
-  worldQuestsDone?: number;
-  theaterTroupe?: number;
-  awakeningTheMachine?: number;
-  severedThreads?: number;
-  remembranceProgress?: number;
-  delvesDone?: number;
-  cofferKeys?: number;
-  heroicDungeons?: number;
-  mythicDungeons?: number;
-}
-
-export interface Reputation {
-  name: string;
-  standing: number;
-  max: number;
-  standingName: string;
-  paragonProgress?: number;
-}
-
-export interface Collections {
-  mounts: number;
-  pets: number;
-  toys: number;
-  achievements: number;
-  titles: number;
-}
-
-export interface RaidAchievements {
-  cuttingEdge?: string;
-  aheadOfTheCurve?: string;
 }
 
 export interface MythicPlusSeasonStats {
@@ -153,9 +119,6 @@ export interface RaidProgress {
   heroicKills: number;
   mythicKills: number;
   totalBosses: number;
-  worldRank?: number;
-  realmRank?: number;
-  completions?: number;
 }
 
 export interface MythicPlusBestRun {
@@ -203,14 +166,6 @@ export interface Character {
   toysOwned?: number;
   petsOwned?: number;
   titlesOwned?: number;
-  enrichmentStatus?: 'success' | 'failed' | 'pending' | 'stale';
-  lastEnrichedAt?: string;
-  role?: PlayerRole;
-  embellishments?: string[];
-  worldProgress?: WorldProgress;
-  reputations?: Reputation[];
-  collections?: Collections;
-  raidAchievements?: RaidAchievements;
 }
 
 export interface Player {

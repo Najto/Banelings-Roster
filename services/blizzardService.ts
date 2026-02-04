@@ -113,19 +113,30 @@ export const getCharacterStats = async (token: string, realm: string, name: stri
   const data = await fetchBlizzardAPI(token, url);
   if (!data) return null;
 
-  console.log(`📊 Stats raw data for ${name}:`, JSON.stringify(data, null, 2).substring(0, 500));
+  console.log(`📊 Stats raw data for ${name}:`, {
+    melee_crit: data.melee_crit,
+    spell_crit: data.spell_crit,
+    ranged_crit: data.ranged_crit,
+    melee_haste: data.melee_haste,
+    spell_haste: data.spell_haste,
+    ranged_haste: data.ranged_haste,
+    mastery: data.mastery,
+    versatility: data.versatility,
+    versatility_damage_done_bonus: data.versatility_damage_done_bonus
+  });
 
-  const crit = data.crit?.value || data.melee_crit?.value || data.ranged_crit?.value || data.spell_crit?.value || 0;
-  const haste = data.haste?.value || data.melee_haste?.value || data.ranged_haste?.value || data.spell_haste?.value || 0;
-  const mastery = data.mastery?.value || 0;
-  const versatility = data.versatility || 0;
-  const versatilityDamageBonus = data.versatility_damage_done_bonus || 0;
+  const critValue = data.melee_crit?.value ?? data.spell_crit?.value ?? data.ranged_crit?.value ?? 0;
+  const hasteValue = data.melee_haste?.value ?? data.spell_haste?.value ?? data.ranged_haste?.value ?? 0;
+  const masteryValue = data.mastery?.value ?? 0;
+  const versValue = data.versatility_damage_done_bonus ?? (data.versatility ? data.versatility / 205 : 0);
+
+  console.log(`📈 Parsed stats for ${name}: Crit ${critValue.toFixed(2)}%, Haste ${hasteValue.toFixed(2)}%, Mastery ${masteryValue.toFixed(2)}%, Vers ${versValue.toFixed(2)}%`);
 
   return {
-    crit: typeof crit === 'number' ? crit : 0,
-    haste: typeof haste === 'number' ? haste : 0,
-    mastery: typeof mastery === 'number' ? mastery : 0,
-    versatility: typeof versatilityDamageBonus === 'number' ? versatilityDamageBonus : (typeof versatility === 'number' ? versatility / 205 : 0)
+    crit: critValue,
+    haste: hasteValue,
+    mastery: masteryValue,
+    versatility: versValue
   };
 };
 

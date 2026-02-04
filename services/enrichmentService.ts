@@ -16,12 +16,12 @@ import {
 import * as BlizzardAPI from './blizzardService';
 
 const UPGRADE_TRACK_BONUS_IDS: Record<string, number[]> = {
-  mythic: [10341, 10342, 10343, 10344, 10345, 10346],
-  hero: [10334, 10335, 10336, 10337, 10338, 10339, 10340],
-  champion: [10327, 10328, 10329, 10330, 10331, 10332, 10333],
-  veteran: [10320, 10321, 10322, 10323, 10324, 10325, 10326],
-  adventurer: [10313, 10314, 10315, 10316, 10317, 10318, 10319],
-  explorer: [10305, 10306, 10307, 10308, 10309, 10310, 10311, 10312]
+  mythic: [10341, 10342, 10343, 10344, 10345, 10346, 11142, 11143, 11144, 11145, 11146, 11147],
+  hero: [10334, 10335, 10336, 10337, 10338, 10339, 10340, 11135, 11136, 11137, 11138, 11139, 11140, 11141],
+  champion: [10327, 10328, 10329, 10330, 10331, 10332, 10333, 11128, 11129, 11130, 11131, 11132, 11133, 11134],
+  veteran: [10320, 10321, 10322, 10323, 10324, 10325, 10326, 11121, 11122, 11123, 11124, 11125, 11126, 11127],
+  adventurer: [10313, 10314, 10315, 10316, 10317, 10318, 10319, 11114, 11115, 11116, 11117, 11118, 11119, 11120],
+  explorer: [10305, 10306, 10307, 10308, 10309, 10310, 10311, 10312, 11107, 11108, 11109, 11110, 11111, 11112, 11113]
 };
 
 const CREST_CURRENCY_IDS = {
@@ -103,8 +103,16 @@ export const enrichGearWithTracks = async (equipmentData: BlizzardAPI.BlizzardEq
       const upgradeTrack = detectUpgradeTrack(bonusIds);
       const isTier = TIER_ITEM_IDS.has(item.item.id) || bonusIds.some(id => TIER_SET_BONUS_IDS.has(id));
 
-      const enchant = item.enchantments?.[0]?.display_string?.en_GB;
-      const gems = item.sockets?.map(socket => socket.item.id.toString()) || [];
+      let enchant: string | undefined = undefined;
+      if (item.enchantments && item.enchantments.length > 0) {
+        const enchantData = item.enchantments[0];
+        enchant = enchantData?.display_string?.en_GB ||
+                  enchantData?.display_string?.en_US ||
+                  (typeof enchantData?.display_string === 'string' ? enchantData.display_string : undefined) ||
+                  enchantData?.enchantment_id?.toString() ||
+                  'Enchanted';
+      }
+      const gems = item.sockets?.filter(s => s.item?.id)?.map(socket => socket.item.id.toString()) || [];
 
       let itemName = 'Unknown';
 
@@ -121,9 +129,7 @@ export const enrichGearWithTracks = async (equipmentData: BlizzardAPI.BlizzardEq
 
       const isEmbellished = bonusIds.some(id => EMBELLISHMENT_BONUS_IDS.has(id));
 
-      if (upgradeTrack) {
-        console.log(`  📦 ${slotKey}: iLvl ${item.level.value}, Track: ${upgradeTrack}, Tier: ${isTier}, Enchant: ${enchant ? 'Yes' : 'No'}, Gems: ${gems.length}`);
-      }
+      console.log(`  📦 ${slotKey}: iLvl ${item.level.value}, Track: ${upgradeTrack || 'none'}, Tier: ${isTier}, Enchant: ${enchant ? 'Yes' : 'No'}, Gems: ${gems.length}, BonusIDs: [${bonusIds.slice(0, 5).join(',')}${bonusIds.length > 5 ? '...' : ''}]`);
 
       return {
         slot: slotKey,

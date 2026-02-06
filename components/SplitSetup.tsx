@@ -509,7 +509,7 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster }) => {
                       <Info size={12} className="text-indigo-500" /> Key Utility
                   </h5>
                   <div className="space-y-2">
-                    {group.utility.map((util, i) => {
+                    {group.utility.filter(u => u.name.toLowerCase() !== 'utility').map((util, i) => {
                       const providers = BUFF_PROVIDERS[util.name];
                       const isActive = group.players.some(p => providers?.includes(p.className));
                       const meta = BUFF_METADATA[util.name];

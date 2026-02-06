@@ -506,7 +506,7 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster }) => {
 
                 <div className="bg-black/40 border border-white/5 rounded-xl p-4">
                   <h5 className="text-[9px] font-black uppercase tracking-widest text-slate-500 mb-4 flex items-center gap-2">
-                      <Info size={12} className="text-indigo-500" /> Key
+                      <Info size={12} className="text-indigo-500" /> Key Utility
                   </h5>
                   <div className="space-y-2">
                     {group.utility.map((util, i) => {

@@ -341,12 +341,15 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
                 
                 <div className="h-4 w-px bg-white/10" />
                 
-                <button 
+                <button
                   onClick={async () => {
-                    if(confirm("Shared Version auf Spreadsheet-Stand zurücksetzen und Cloud überschreiben? Alle anderen Member sehen dann diesen Stand.")) {
-                      const base = resolveSplits(splits);
-                      await saveWebSplits(base);
+                    const pw = prompt("Enter admin password to reset cloud:");
+                    if (pw !== 'admin1337') {
+                      if (pw !== null) alert("Incorrect password.");
+                      return;
                     }
+                    const base = resolveSplits(splits);
+                    await saveWebSplits(base);
                   }}
                   className="group flex items-center gap-2 text-slate-600 hover:text-red-400 transition-colors"
                   title="Overwrite Cloud with Spreadsheet Data"

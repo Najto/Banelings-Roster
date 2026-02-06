@@ -516,7 +516,7 @@ const App: React.FC = () => {
             </div>
           )}
           {activeTab === 'audit' && <RosterAudit roster={roster} />}
-          {activeTab === 'splits' && <SplitSetup splits={splits} roster={roster} />}
+          {activeTab === 'splits' && <SplitSetup splits={splits} roster={roster} minIlvl={minIlvl} />}
           {activeTab === 'analytics' && <AnalyticsDashboard roster={roster} />}
           {activeTab === 'settings' && <Settings />}
         </div>

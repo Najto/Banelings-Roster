@@ -124,7 +124,7 @@ const isSameCharacter = (c1: { name: string, isMain?: boolean, server?: string }
 };
 
 export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl }) => {
-  const [source, setSource] = useState<'sheet' | 'web'>('sheet');
+  const [source, setSource] = useState<'sheet' | 'web'>('web');
   const [currentSplits, setCurrentSplits] = useState<SplitGroup[]>([]);
   const [editMember, setEditMember] = useState<{ memberName: string, groupIndex: number } | null>(null);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'synced' | 'error'>('idle');

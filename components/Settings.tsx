@@ -1,7 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
-import { FileSpreadsheet, ExternalLink, Users, AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
+import { FileSpreadsheet, ExternalLink, Users, AlertCircle, CheckCircle, Loader2, Sliders, Save } from 'lucide-react';
 import { persistenceService } from '../services/persistenceService';
+import { configService, IlvlThresholds } from '../services/configService';
 
 const SPREADSHEET_WEB_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vS8AIcE-2b-IJohqlFiUCp0laqabWOptLdAk1OpL9o8LptWglWr2rMwnV-7YM6dwwGiEO9ruz7triLa/pubhtml";
 
@@ -19,14 +20,40 @@ export const Settings: React.FC = () => {
     skipped: number;
     errors: string[];
   } | null>(null);
+  const [thresholds, setThresholds] = useState<IlvlThresholds>({
+    min_ilvl: 615,
+    mythic_ilvl: 626,
+    heroic_ilvl: 613,
+  });
+  const [savingThresholds, setSavingThresholds] = useState(false);
+  const [thresholdsSaved, setThresholdsSaved] = useState(false);
 
   useEffect(() => {
     checkMigrationStatus();
+    loadThresholds();
   }, []);
 
   const checkMigrationStatus = async () => {
     const status = await persistenceService.checkMigrationNeeded();
     setMigrationStatus(status);
+  };
+
+  const loadThresholds = async () => {
+    const loadedThresholds = await configService.getIlvlThresholds();
+    setThresholds(loadedThresholds);
+  };
+
+  const saveThresholds = async () => {
+    setSavingThresholds(true);
+    setThresholdsSaved(false);
+
+    const success = await configService.updateIlvlThresholds(thresholds);
+
+    setSavingThresholds(false);
+    if (success) {
+      setThresholdsSaved(true);
+      setTimeout(() => setThresholdsSaved(false), 3000);
+    }
   };
 
   const runMigration = async () => {
@@ -42,6 +69,87 @@ export const Settings: React.FC = () => {
 
   return (
     <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in duration-500 pb-20">
+      {/* Item Level Thresholds Section */}
+      <div className="bg-[#0c0c0e] border border-white/5 rounded-2xl p-8 shadow-2xl">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="p-3 bg-amber-500/10 rounded-xl">
+            <Sliders className="text-amber-400" size={24} />
+          </div>
+          <div>
+            <h2 className="text-2xl font-black text-white uppercase tracking-tight">Item Level Thresholds</h2>
+            <p className="text-slate-500 text-sm font-medium">Configure color-coded item level thresholds</p>
+          </div>
+        </div>
+
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-black/40 border border-white/10 rounded-xl p-5">
+              <label className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-3 block">
+                Minimum Item Level
+              </label>
+              <input
+                type="number"
+                value={thresholds.min_ilvl}
+                onChange={(e) => setThresholds({ ...thresholds, min_ilvl: parseInt(e.target.value) || 0 })}
+                className="w-full bg-black/60 border border-white/10 rounded-lg px-4 py-3 text-white text-lg font-black focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+              />
+              <p className="text-slate-600 text-xs mt-2">Items below this will be marked red</p>
+            </div>
+
+            <div className="bg-black/40 border border-white/10 rounded-xl p-5">
+              <label className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-3 block">
+                Heroic Track Item Level
+              </label>
+              <input
+                type="number"
+                value={thresholds.heroic_ilvl}
+                onChange={(e) => setThresholds({ ...thresholds, heroic_ilvl: parseInt(e.target.value) || 0 })}
+                className="w-full bg-black/60 border border-white/10 rounded-lg px-4 py-3 text-white text-lg font-black focus:outline-none focus:ring-2 focus:ring-sky-500/50"
+              />
+              <p className="text-slate-600 text-xs mt-2">Items at this level will be marked blue</p>
+            </div>
+
+            <div className="bg-black/40 border border-white/10 rounded-xl p-5">
+              <label className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-3 block">
+                Mythic Track Item Level
+              </label>
+              <input
+                type="number"
+                value={thresholds.mythic_ilvl}
+                onChange={(e) => setThresholds({ ...thresholds, mythic_ilvl: parseInt(e.target.value) || 0 })}
+                className="w-full bg-black/60 border border-white/10 rounded-lg px-4 py-3 text-white text-lg font-black focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+              />
+              <p className="text-slate-600 text-xs mt-2">Items at this level will be marked gold</p>
+            </div>
+          </div>
+
+          {thresholdsSaved && (
+            <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-4 flex items-center gap-3">
+              <CheckCircle className="text-emerald-400" size={20} />
+              <span className="text-emerald-300 font-bold text-sm">Thresholds saved successfully</span>
+            </div>
+          )}
+
+          <button
+            onClick={saveThresholds}
+            disabled={savingThresholds}
+            className="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 disabled:text-slate-500 text-white px-5 py-3 rounded-xl font-black text-sm uppercase tracking-widest flex items-center justify-center gap-2 transition-all shadow-lg shadow-blue-600/20 disabled:shadow-none"
+          >
+            {savingThresholds ? (
+              <>
+                <Loader2 size={16} className="animate-spin" />
+                Saving...
+              </>
+            ) : (
+              <>
+                <Save size={16} />
+                Save Thresholds
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+
       {/* Migration Section */}
       <div className="bg-[#0c0c0e] border border-white/5 rounded-2xl p-8 shadow-2xl">
         <div className="flex items-center gap-3 mb-6">

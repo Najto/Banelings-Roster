@@ -16,6 +16,7 @@ import { fetchRaiderIOData, getCurrentResetTime, computeWeeklyRaidKills } from '
 import { fetchBlizzardToken, getCharacterSummary, getCharacterStats, getCharacterAchievements, getCharacterCollections, getCharacterProfessions, getCharacterEquipment, getCharacterPvPSummary, getCharacterPvPBracket, getCharacterReputations, getCharacterQuests } from './services/blizzardService';
 import { fetchWarcraftLogsData } from './services/warcraftlogsService';
 import { persistenceService } from './services/persistenceService';
+import { configService, IlvlThresholds } from './services/configService';
 import { LayoutGrid, Users, Trophy, RefreshCw, Settings as SettingsIcon, AlertTriangle, Zap, Split, ClipboardList, Database, List, User, Loader2, Layout, AlertCircle, X } from 'lucide-react';
 
 const SLOT_MAP: Record<string, string> = {
@@ -66,6 +67,11 @@ const App: React.FC = () => {
   const [roster, setRoster] = useState<Player[]>(INITIAL_ROSTER);
   const [splits, setSplits] = useState<SplitGroup[]>([]);
   const [minIlvl, setMinIlvl] = useState<number>(615);
+  const [ilvlThresholds, setIlvlThresholds] = useState<IlvlThresholds>({
+    min_ilvl: 615,
+    mythic_ilvl: 626,
+    heroic_ilvl: 613,
+  });
   const [activeTab, setActiveTab] = useState<'roster' | 'audit' | 'analytics' | 'splits' | 'settings'>('roster');
   const [rosterViewMode, setRosterViewMode] = useState<'table' | 'overview' | 'detail'>('overview');
   const [isUpdating, setIsUpdating] = useState(false);
@@ -407,6 +413,10 @@ const App: React.FC = () => {
         const savedSplits = await persistenceService.loadSplits();
         if (savedSplits) setSplits(savedSplits);
 
+        const thresholds = await configService.getIlvlThresholds();
+        setIlvlThresholds(thresholds);
+        setMinIlvl(thresholds.min_ilvl);
+
         const migrationCheck = await persistenceService.checkMigrationNeeded();
         if (migrationCheck.needed && !localStorage.getItem('migration_dismissed')) {
           setMigrationBanner({ show: true, count: migrationCheck.uniquePlayers });
@@ -417,6 +427,17 @@ const App: React.FC = () => {
     };
     initLoad();
   }, []);
+
+  useEffect(() => {
+    if (activeTab !== 'settings') {
+      const reloadThresholds = async () => {
+        const thresholds = await configService.getIlvlThresholds();
+        setIlvlThresholds(thresholds);
+        setMinIlvl(thresholds.min_ilvl);
+      };
+      reloadThresholds();
+    }
+  }, [activeTab]);
 
   // Delete Character Handler
   const handleDeleteCharacter = useCallback(async (characterName: string, realm: string) => {
@@ -825,7 +846,7 @@ const App: React.FC = () => {
               {rosterViewMode === 'detail' && <CharacterDetailView roster={roster} minIlvl={minIlvl} />}
             </div>
           )}
-          {activeTab === 'audit' && <RosterAudit roster={roster} />}
+          {activeTab === 'audit' && <RosterAudit roster={roster} ilvlThresholds={ilvlThresholds} />}
           {activeTab === 'splits' && <SplitSetup splits={splits} roster={roster} minIlvl={minIlvl} />}
           {activeTab === 'analytics' && <AnalyticsDashboard roster={roster} />}
           {activeTab === 'settings' && <Settings />}

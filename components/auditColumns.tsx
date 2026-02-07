@@ -1,5 +1,6 @@
 import React from 'react';
 import { Character, CLASS_COLORS, PlayerRole } from '../types';
+import { IlvlThresholds } from '../services/configService';
 import {
   Shield, Heart, Sword, Target, CheckCircle2, Eye,
   Zap, Box, Trophy, Gem, Compass, Users2, Sparkles,
@@ -38,7 +39,7 @@ const RoleIcon = ({ role }: { role: PlayerRole }) => {
 
 const SLOTS = ['head', 'neck', 'shoulder', 'back', 'chest', 'wrist', 'hands', 'waist', 'legs', 'feet', 'finger1', 'finger2', 'trinket1', 'trinket2', 'mainhand', 'offhand'];
 
-export const HEADER_GROUPS: HeaderGroup[] = [
+export const getHeaderGroups = (thresholds: IlvlThresholds): HeaderGroup[] => [
   {
     id: 'identity',
     label: 'IDENTITY',
@@ -163,7 +164,7 @@ export const HEADER_GROUPS: HeaderGroup[] = [
       render: (c: FlatChar) => {
         const item = c.gearAudit?.slots[s];
         const ilvl = item?.ilvl;
-        const clr = ilvl && ilvl >= 626 ? 'text-amber-400' : ilvl && ilvl >= 613 ? 'text-sky-400' : 'text-slate-400';
+        const clr = ilvl && ilvl >= thresholds.mythic_ilvl ? 'text-amber-400' : ilvl && ilvl >= thresholds.heroic_ilvl ? 'text-sky-400' : 'text-slate-400';
         return (
           <div className="flex flex-col">
             <span className={`text-[11px] font-black ${clr}`}>{ilvl || '-'}</span>
@@ -359,5 +360,13 @@ export const HEADER_GROUPS: HeaderGroup[] = [
     ],
   },
 ];
+
+export const getAllColumns = (thresholds: IlvlThresholds) => getHeaderGroups(thresholds).flatMap(g => g.columns);
+
+export const HEADER_GROUPS: HeaderGroup[] = getHeaderGroups({
+  min_ilvl: 615,
+  mythic_ilvl: 626,
+  heroic_ilvl: 613,
+});
 
 export const ALL_COLUMNS = HEADER_GROUPS.flatMap(g => g.columns);

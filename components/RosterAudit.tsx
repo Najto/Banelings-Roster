@@ -1,11 +1,13 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { Player, PlayerRole } from '../types';
+import { IlvlThresholds } from '../services/configService';
 import { Search, ChevronUp, ChevronDown, Info } from 'lucide-react';
-import { HEADER_GROUPS, ALL_COLUMNS, type FlatChar } from './auditColumns';
+import { getHeaderGroups, getAllColumns, type FlatChar } from './auditColumns';
 import { AuditColumnPicker } from './AuditColumnPicker';
 
 interface RosterAuditProps {
   roster: Player[];
+  ilvlThresholds: IlvlThresholds;
 }
 
 const ROLE_ORDER: Record<string, number> = {
@@ -33,12 +35,15 @@ const saveVisibleGroups = (groups: Set<string>) => {
   localStorage.setItem(STORAGE_KEY, JSON.stringify([...groups]));
 };
 
-export const RosterAudit: React.FC<RosterAuditProps> = ({ roster }) => {
+export const RosterAudit: React.FC<RosterAuditProps> = ({ roster, ilvlThresholds }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showMainsOnly, setShowMainsOnly] = useState(true);
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' }>({ key: '', direction: 'asc' });
   const [visibleGroups, setVisibleGroups] = useState<Set<string>>(loadVisibleGroups);
   const [showColumnPicker, setShowColumnPicker] = useState(false);
+
+  const HEADER_GROUPS = useMemo(() => getHeaderGroups(ilvlThresholds), [ilvlThresholds]);
+  const ALL_COLUMNS = useMemo(() => getAllColumns(ilvlThresholds), [ilvlThresholds]);
 
   const flatChars: FlatChar[] = useMemo(() => {
     return roster.flatMap(p => [

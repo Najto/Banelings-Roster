@@ -300,11 +300,6 @@ export interface ArmorCount {
 /**
  * Represents a logical group for Split Runs (e.g., "Split 1").
  */
-export interface HelperCharacter {
-  name: string;
-  className: WoWClass;
-}
-
 export interface SplitGroup {
   name: string;
   avgIlvl: number;
@@ -317,7 +312,6 @@ export interface SplitGroup {
     ilvl: number;
     server?: string;
   }[];
-  helpers?: HelperCharacter[];
   buffs: RaidBuff[];
   utility: RaidBuff[];
   armor: ArmorCount;

@@ -144,6 +144,7 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
   const [showLoginDialog, setShowLoginDialog] = useState(false);
   const [loginEmail, setLoginEmail] = useState('admin');
   const [loginPassword, setLoginPassword] = useState('');
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
 
   const resolveSplits = useCallback((baseSplits: SplitGroup[]) => {
     return baseSplits.map(group => ({
@@ -181,7 +182,9 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
     checkAuth();
 
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
-      setIsAdmin(!!session?.user);
+      (async () => {
+        setIsAdmin(!!session?.user);
+      })();
     });
 
     return () => {
@@ -215,15 +218,24 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
 
   useEffect(() => {
     const initSource = async () => {
-      setSyncStatus('syncing');
-      const remoteData = await persistenceService.loadSplits(currentVersion);
-      if (remoteData) {
-        setCurrentSplits(resolveSplits(remoteData));
-        setSyncStatus('synced');
-      } else {
+      try {
+        setSyncStatus('syncing');
+        const remoteData = await persistenceService.loadSplits(currentVersion);
+        if (remoteData && remoteData.length > 0) {
+          setCurrentSplits(resolveSplits(remoteData));
+          setSyncStatus('synced');
+        } else {
+          const base = resolveSplits(splits);
+          setCurrentSplits(base);
+          setSyncStatus('idle');
+        }
+      } catch (error) {
+        console.error('Failed to load splits:', error);
         const base = resolveSplits(splits);
         setCurrentSplits(base);
-        setSyncStatus('idle');
+        setSyncStatus('error');
+      } finally {
+        setIsInitialLoad(false);
       }
     };
     initSource();
@@ -410,7 +422,7 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
     return roles;
   }, [roster]);
 
-  if (!currentSplits || currentSplits.length === 0) {
+  if (isInitialLoad || !currentSplits || currentSplits.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-slate-600">
         <Loader2 className="animate-spin mb-4" />

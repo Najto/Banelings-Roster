@@ -7,13 +7,11 @@ import { StatOverview } from './components/StatOverview';
 import { AnalyticsDashboard } from './components/AnalyticsDashboard';
 import { SplitSetup } from './components/SplitSetup';
 import { Settings } from './components/Settings';
-import { fetchRosterFromSheet, fetchSplitsFromSheet } from './services/spreadsheetService';
+import { fetchRosterFromSheet, fetchSplitsFromSheet, enrichRosterWithAPIData } from './services/spreadsheetService';
 import { fetchBlizzardToken } from './services/blizzardService';
-import { enrichRosterWithDatabase, loadRosterFromDatabase, EnrichmentProgress } from './services/characterEnrichmentService';
-import { isDataStale, getEnrichmentMetadata } from './services/databaseService';
 import { CharacterDetailView } from './components/CharacterDetailView';
 import { Audit } from './components/Audit';
-import { LayoutGrid, Users, RefreshCw, Settings as SettingsIcon, AlertTriangle, Zap, Split, List, User, ClipboardCheck, Clock } from 'lucide-react';
+import { LayoutGrid, Users, RefreshCw, Settings as SettingsIcon, AlertTriangle, Zap, Split, List, User, ClipboardCheck } from 'lucide-react';
 
 const App: React.FC = () => {
   const [roster, setRoster] = useState<Player[]>(INITIAL_ROSTER);
@@ -24,8 +22,7 @@ const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState<string>("Nie");
   const [rosterViewMode, setRosterViewMode] = useState<'table' | 'detail'>('table');
-  const [enrichmentProgress, setEnrichmentProgress] = useState<EnrichmentProgress | null>(null);
-  const [isEnriched, setIsEnriched] = useState(false);
+  const [enrichmentProgress, setEnrichmentProgress] = useState<{ current: number; total: number } | null>(null);
 
   const enrichWithFullAPIData = useCallback(async (baseRoster: Player[]) => {
     const mappings: MemberMapping[] = JSON.parse(localStorage.getItem('guild_mappings') || "[]");
@@ -36,11 +33,11 @@ const App: React.FC = () => {
       return baseRoster;
     }
 
-    const enrichedRoster = await enrichRosterWithDatabase(
+    const enrichedRoster = await enrichRosterWithAPIData(
       baseRoster,
       token,
-      (progress) => {
-        setEnrichmentProgress(progress);
+      (current, total) => {
+        setEnrichmentProgress({ current, total });
       }
     );
 
@@ -56,15 +53,9 @@ const App: React.FC = () => {
     });
 
     setRoster(finalRoster);
-    setIsEnriched(true);
-
-    const metadata = await getEnrichmentMetadata();
-    if (metadata?.last_enriched_at) {
-      setLastUpdate(new Date(metadata.last_enriched_at).toLocaleTimeString());
-    }
   }, []);
 
-  const syncWithSheet = useCallback(async (withEnrichment: boolean = false) => {
+  const syncWithSheet = useCallback(async () => {
     setIsUpdating(true);
     setError(null);
     try {
@@ -73,34 +64,14 @@ const App: React.FC = () => {
         fetchSplitsFromSheet()
       ]);
 
+      if (rosterResult.roster.length > 0) {
+        setRoster(rosterResult.roster);
+        await enrichWithFullAPIData(rosterResult.roster);
+      }
+
       setSplits(splitsResult);
       setMinIlvl(rosterResult.minIlvl);
-
-      if (rosterResult.roster.length > 0) {
-        const mappings: MemberMapping[] = JSON.parse(localStorage.getItem('guild_mappings') || "[]");
-
-        let finalRoster = rosterResult.roster.map(player => {
-          const mapping = mappings.find(m => m.memberName.toLowerCase() === player.name.toLowerCase());
-          const finalRole = (mapping && mapping.role && mapping.role !== PlayerRole.UNKNOWN)
-            ? mapping.role
-            : player.role;
-
-          return { ...player, role: finalRole };
-        });
-
-        const rosterWithCache = await loadRosterFromDatabase(finalRoster);
-        setRoster(rosterWithCache);
-        setLastUpdate(new Date().toLocaleTimeString());
-
-        const metadata = await getEnrichmentMetadata();
-        if (metadata?.last_enriched_at) {
-          setIsEnriched(true);
-        }
-
-        if (withEnrichment) {
-          await enrichWithFullAPIData(rosterWithCache);
-        }
-      }
+      setLastUpdate(new Date().toLocaleTimeString());
     } catch (e) {
       setError("Synchronisierung fehlgeschlagen.");
       console.error(e);
@@ -110,7 +81,7 @@ const App: React.FC = () => {
   }, [enrichWithFullAPIData]);
 
   useEffect(() => {
-    syncWithSheet(false);
+    syncWithSheet();
   }, [syncWithSheet]);
 
   return (
@@ -185,24 +156,14 @@ const App: React.FC = () => {
               {activeTab === 'settings' && 'Guild Settings'}
             </h2>
           </div>
-          <div className="flex gap-2">
-            <button
-              onClick={() => syncWithSheet(false)}
-              disabled={isUpdating}
-              className="bg-white/5 hover:bg-white/10 border border-white/10 text-white px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest flex items-center gap-2 transition-all active:scale-95 disabled:opacity-50"
-            >
-              <RefreshCw className={`${isUpdating ? 'animate-spin' : ''}`} size={16} />
-              {isUpdating ? 'Refreshing...' : 'Refresh'}
-            </button>
-            <button
-              onClick={() => syncWithSheet(true)}
-              disabled={isUpdating}
-              className="bg-emerald-600 hover:bg-emerald-700 border border-emerald-500/20 text-white px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest flex items-center gap-2 transition-all active:scale-95 disabled:opacity-50"
-            >
-              <Zap className={`${isUpdating ? 'animate-spin' : ''}`} size={16} />
-              {isUpdating ? 'Enriching...' : 'Enrich All'}
-            </button>
-          </div>
+          <button 
+            onClick={syncWithSheet}
+            disabled={isUpdating}
+            className="bg-white/5 hover:bg-white/10 border border-white/10 text-white px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest flex items-center gap-2 transition-all active:scale-95 disabled:opacity-50"
+          >
+            <RefreshCw className={`${isUpdating ? 'animate-spin' : ''}`} size={16} />
+            Refresh Data
+          </button>
         </header>
 
         {error && (
@@ -213,24 +174,9 @@ const App: React.FC = () => {
         )}
 
         {enrichmentProgress && (
-          <div className="mb-6 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-4 py-3 rounded-xl">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-3">
-                <Zap size={16} className="animate-pulse" />
-                <span className="text-xs font-bold">
-                  Enriching characters: {enrichmentProgress.processed}/{enrichmentProgress.total}
-                </span>
-              </div>
-              <span className="text-[10px]">
-                {enrichmentProgress.successful} successful · {enrichmentProgress.failed} failed · {enrichmentProgress.skipped} cached
-              </span>
-            </div>
-            <div className="w-full bg-black/40 rounded-full h-1.5 overflow-hidden">
-              <div
-                className="bg-emerald-500 h-1.5 transition-all duration-300 ease-out"
-                style={{ width: `${(enrichmentProgress.processed / enrichmentProgress.total) * 100}%` }}
-              />
-            </div>
+          <div className="mb-6 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-4 py-3 rounded-xl text-xs font-bold flex items-center gap-3">
+            <Zap size={16} className="animate-pulse" />
+            Enriching character data: {enrichmentProgress.current}/{enrichmentProgress.total}
           </div>
         )}
 
@@ -266,13 +212,7 @@ const App: React.FC = () => {
 
           {activeTab === 'audit' && (
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
-              <Audit
-                roster={roster}
-                minIlvl={minIlvl}
-                isEnriched={isEnriched}
-                onEnrich={() => syncWithSheet(true)}
-                isEnriching={isUpdating && enrichmentProgress !== null}
-              />
+              <Audit roster={roster} minIlvl={minIlvl} />
             </div>
           )}
 

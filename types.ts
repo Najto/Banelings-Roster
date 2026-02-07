@@ -166,9 +166,6 @@ export interface Character {
   toysOwned?: number;
   petsOwned?: number;
   titlesOwned?: number;
-  enrichmentStatus?: 'success' | 'failed' | 'pending' | 'stale';
-  lastEnrichedAt?: string;
-  role?: PlayerRole;
 }
 
 export interface Player {

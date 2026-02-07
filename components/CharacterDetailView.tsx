@@ -343,7 +343,7 @@ export const CharacterDetailView: React.FC<CharacterDetailViewProps> = ({ roster
                   <div key={i} className="bg-black/40 border border-white/5 p-4 rounded-2xl flex items-center justify-between group hover:border-white/10 transition-colors">
                     <div>
                       <p className="text-[11px] font-black text-white truncate max-w-[150px]">{run.dungeon}</p>
-                      <p className="text-[8px] text-slate-600 font-bold uppercase">{new Date(run.completed_at).toLocaleDateString()}</p>
+                      <p className="text-[10px] text-slate-600 font-bold uppercase">{new Date(run.completed_at).toLocaleDateString()}</p>
                     </div>
                     <div className="flex items-center gap-3">
                       <span className={`text-lg font-black italic ${run.mythic_level >= 10 ? 'text-amber-500' : 'text-slate-500'}`}>+{run.mythic_level}</span>

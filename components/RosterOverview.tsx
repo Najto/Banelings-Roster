@@ -154,7 +154,7 @@ export const RosterOverview: React.FC<RosterOverviewProps> = ({ roster, minIlvl,
                   <th className="px-6 py-3 text-left text-[9px] font-black uppercase tracking-widest text-slate-500 w-[120px]">Member</th>
                   <th className="px-6 py-3 text-left text-[9px] font-black uppercase tracking-widest text-slate-500 w-[180px]">Main Character</th>
                   {splitHeaders.map((header, i) => (
-                    <th key={i} className="px-6 py-3 text-left text-[90px] font-black uppercase tracking-widest text-slate-500 w-[180px]">
+                    <th key={i} className="px-6 py-3 text-left text-[9px] font-black uppercase tracking-widest text-slate-500 w-[180px]">
                       {header}
                     </th>
                   ))}

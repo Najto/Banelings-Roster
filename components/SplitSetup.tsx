@@ -41,7 +41,6 @@ import {
 interface SplitSetupProps {
   splits: SplitGroup[];
   roster: Player[];
-  minIlvl: number;
 }
 
 const BUFF_PROVIDERS: Record<string, WoWClass[]> = {
@@ -123,7 +122,7 @@ const isSameCharacter = (c1: { name: string, isMain?: boolean, server?: string }
            (c1.server === c2.server || (!c1.server && !c2.server));
 };
 
-export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl }) => {
+export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster }) => {
   const [source, setSource] = useState<'sheet' | 'web'>('sheet');
   const [currentSplits, setCurrentSplits] = useState<SplitGroup[]>([]);
   const [editMember, setEditMember] = useState<{ memberName: string, groupIndex: number } | null>(null);
@@ -424,7 +423,7 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
                                   </div>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                    <span className={`text-[10px] font-black px-1.5 py-0.5 rounded ${assignedChar.ilvl >= minIlvl ? 'text-indigo-400 bg-indigo-400/5' : 'text-red-500 bg-red-500/10'}`}>
+                                    <span className={`text-[10px] font-black px-1.5 py-0.5 rounded ${assignedChar.ilvl >= 630 ? 'text-indigo-400 bg-indigo-400/5' : 'text-slate-500 bg-black'}`}>
                                         {assignedChar.ilvl}
                                     </span>
                                     {source === 'web' && <Settings2 size={10} className="text-slate-700 opacity-0 group-hover:opacity-100" />}
@@ -507,10 +506,10 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
 
                 <div className="bg-black/40 border border-white/5 rounded-xl p-4">
                   <h5 className="text-[9px] font-black uppercase tracking-widest text-slate-500 mb-4 flex items-center gap-2">
-                      <Info size={12} className="text-indigo-500" /> Key Utility
+                      <Info size={12} className="text-indigo-500" /> Key
                   </h5>
                   <div className="space-y-2">
-                    {group.utility.filter(u => u.name.toLowerCase() !== 'utility').map((util, i) => {
+                    {group.utility.map((util, i) => {
                       const providers = BUFF_PROVIDERS[util.name];
                       const isActive = group.players.some(p => providers?.includes(p.className));
                       const meta = BUFF_METADATA[util.name];

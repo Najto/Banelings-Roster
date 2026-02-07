@@ -15,7 +15,7 @@ import { fetchRaiderIOData, getCurrentResetTime, computeWeeklyRaidKills } from '
 import { fetchBlizzardToken, getCharacterSummary, getCharacterStats, getCharacterAchievements, getCharacterCollections, getCharacterProfessions, getCharacterEquipment, getCharacterPvPSummary, getCharacterPvPBracket, getCharacterReputations, getCharacterQuests } from './services/blizzardService';
 import { fetchWarcraftLogsData } from './services/warcraftlogsService';
 import { persistenceService } from './services/persistenceService';
-import { LayoutGrid, Users, Trophy, RefreshCw, Settings as SettingsIcon, AlertTriangle, Zap, Split, ClipboardList, Database, List, User, Loader2, Layout } from 'lucide-react';
+import { LayoutGrid, Users, Trophy, Sword, RefreshCw, Settings as SettingsIcon, AlertTriangle, Zap, Split, ClipboardList, Database, List, User, Loader2, Layout } from 'lucide-react';
 
 const SLOT_MAP: Record<string, string> = {
   'HEAD': 'head',
@@ -421,7 +421,9 @@ const App: React.FC = () => {
     <div className="min-h-screen wow-gradient flex flex-col md:flex-row overflow-hidden h-screen text-slate-200">
       <nav className="w-full md:w-64 bg-[#050507] border-b md:border-b-0 md:border-r border-white/5 p-6 space-y-8 sticky top-0 md:h-screen z-10 flex flex-col shadow-2xl">
         <div className="flex items-center gap-3">
-          <img src="/96f31eb4f56a49f3e069065c7614c591.png" alt="Banelings" className="w-10 h-10 rounded-xl shadow-lg" />
+          <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-600/30">
+            <Sword className="text-white" size={24} />
+          </div>
           <h1 className="text-xl font-black tracking-tighter text-white uppercase italic">Banelings</h1>
         </div>
 
@@ -514,7 +516,7 @@ const App: React.FC = () => {
             </div>
           )}
           {activeTab === 'audit' && <RosterAudit roster={roster} />}
-          {activeTab === 'splits' && <SplitSetup splits={splits} roster={roster} minIlvl={minIlvl} />}
+          {activeTab === 'splits' && <SplitSetup splits={splits} roster={roster} />}
           {activeTab === 'analytics' && <AnalyticsDashboard roster={roster} />}
           {activeTab === 'settings' && <Settings />}
         </div>

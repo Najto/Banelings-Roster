@@ -68,7 +68,7 @@ const CharacterCell = ({
         >
           {char.name}
         </span>
-        <span className={`text-[10px] font-mono font-black ${char.itemLevel >= minIlvl ? 'text-indigo-400' : 'text-slate-600'}`}>
+        <span className={`text-[12px] font-mono font-black ${char.itemLevel >= minIlvl ? 'text-indigo-400' : 'text-slate-600'}`}>
           {char.itemLevel}
         </span>
       </div>

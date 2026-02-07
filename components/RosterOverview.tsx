@@ -168,7 +168,7 @@ export const RosterOverview: React.FC<RosterOverviewProps> = ({ roster, minIlvl,
                         {player.name}
                       </span>
                     </td>
-                    <td className="px-100 py-3">
+                    <td className="px-6 py-3">
                       <CharacterCell
                         char={player.mainCharacter}
                         isMain

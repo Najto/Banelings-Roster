@@ -336,7 +336,7 @@ export const CharacterDetailView: React.FC<CharacterDetailViewProps> = ({ roster
           <div className="lg:col-span-4 space-y-6">
             <div className="bg-black/30 rounded-3xl border border-white/5 p-6">
               <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
-                <Skull size={14} className="text-red-500" /> Best M+ Runs
+                <Skull size={14} className="text-red-500" /> Recent M+ Runs
               </h4>
               <div className="space-y-2">
                 {displayChar.recentRuns && displayChar.recentRuns.length > 0 ? displayChar.recentRuns.slice(0, 8).map((run, i) => (

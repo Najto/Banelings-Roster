@@ -1,8 +1,11 @@
 
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { SplitGroup, HelperCharacter, PlayerRole, CLASS_COLORS, ROLE_PRIORITY, WoWClass, Player, Character, VersionKey, VERSION_LABELS } from '../types';
 import { persistenceService } from '../services/persistenceService';
 import { supabase } from '../services/supabaseClient';
+import { realtimeService } from '../services/realtimeService';
+import Toast from './Toast';
+import { useToast } from '../hooks/useToast';
 import {
   Shield,
   Heart,
@@ -145,6 +148,9 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
   const [loginEmail, setLoginEmail] = useState('admin');
   const [loginPassword, setLoginPassword] = useState('');
   const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [isRealtimeConnected, setIsRealtimeConnected] = useState(false);
+  const isSavingRef = useRef(false);
+  const { toasts, showToast, dismissToast } = useToast();
 
   const resolveSplits = useCallback((baseSplits: SplitGroup[]) => {
     return baseSplits.map(group => ({
@@ -241,6 +247,29 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
     initSource();
   }, [currentVersion, splits, resolveSplits]);
 
+  useEffect(() => {
+    const guildKeyMatch = "2PACX-1vS8AIcE-2b-IJohqlFiUCp0laqabWOptLdAk1OpL9o8LptWglWr2rMwnV-7YM6dwwGiEO9ruz7triLa";
+
+    const unsubscribe = realtimeService.subscribeSplits(
+      guildKeyMatch,
+      currentVersion,
+      (newSplits: SplitGroup[]) => {
+        if (!isSavingRef.current) {
+          const resolved = resolveSplits(newSplits);
+          setCurrentSplits(resolved);
+          showToast('Split setup updated by another user', 'info', 3000);
+        }
+      }
+    );
+
+    setIsRealtimeConnected(true);
+
+    return () => {
+      unsubscribe();
+      setIsRealtimeConnected(false);
+    };
+  }, [currentVersion, resolveSplits, showToast]);
+
   const saveWebSplits = async (newSplits: SplitGroup[]) => {
     if (currentVersion === 'main' && !isAdmin) {
       alert('You have to be an admin to do that');
@@ -249,8 +278,12 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
 
     setCurrentSplits(newSplits);
     setSyncStatus('syncing');
+    isSavingRef.current = true;
     const success = await persistenceService.saveSplits(newSplits, currentVersion);
     setSyncStatus(success ? 'synced' : 'error');
+    setTimeout(() => {
+      isSavingRef.current = false;
+    }, 1000);
   };
 
   const handleCopyVersion = async () => {
@@ -433,6 +466,7 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
 
   return (
     <div className="space-y-6">
+      <Toast toasts={toasts} onDismiss={dismissToast} />
       {/* Shared Header & Toggles */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between bg-[#0c0c0e]/50 p-3 rounded-2xl border border-white/5 gap-4 shadow-xl">
         <div className="flex flex-col sm:flex-row gap-3">
@@ -488,6 +522,12 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
                 <div className="flex items-center gap-2 text-emerald-500">
                   <Cloud size={12} />
                   <span className="text-[9px] font-black uppercase tracking-widest">{VERSION_LABELS[currentVersion]} - Cloud Synced</span>
+                  {isRealtimeConnected && (
+                    <div className="flex items-center gap-1">
+                      <span className="text-slate-600">•</span>
+                      <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" title="Real-time sync active" />
+                    </div>
+                  )}
                 </div>
               ) : syncStatus === 'error' ? (
                 <div className="flex items-center gap-2 text-red-500">

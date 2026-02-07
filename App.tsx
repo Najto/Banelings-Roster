@@ -506,6 +506,53 @@ const App: React.FC = () => {
     }
   }, []);
 
+  // Swap Main Character Handler
+  const handleSwapCharacters = useCallback(async (
+    playerName: string,
+    draggedCharName: string,
+    draggedRealm: string,
+    targetCharName: string,
+    targetRealm: string
+  ) => {
+    try {
+      // Find which is main and which is split
+      const player = roster.find(p => p.name === playerName);
+      if (!player) {
+        setError('Player not found');
+        return;
+      }
+
+      const draggedIsMain = player.mainCharacter.name === draggedCharName;
+      const targetIsMain = player.mainCharacter.name === targetCharName;
+
+      // Only proceed if we're swapping main with a split or vice versa
+      if (draggedIsMain || targetIsMain) {
+        const oldMainName = draggedIsMain ? draggedCharName : targetCharName;
+        const oldMainRealm = draggedIsMain ? draggedRealm : targetRealm;
+        const newMainName = draggedIsMain ? targetCharName : draggedCharName;
+        const newMainRealm = draggedIsMain ? targetRealm : draggedRealm;
+
+        const success = await persistenceService.swapMainCharacter(
+          playerName,
+          newMainName,
+          newMainRealm,
+          oldMainName,
+          oldMainRealm
+        );
+
+        if (success) {
+          const updatedRoster = await persistenceService.loadRosterFromDatabase();
+          setRoster(updatedRoster);
+        } else {
+          setError('Failed to swap characters');
+        }
+      }
+    } catch (e) {
+      console.error('Failed to swap characters:', e);
+      setError('Failed to swap characters');
+    }
+  }, [roster]);
+
   // Reload Roster Handler
   const handleReloadRoster = useCallback(async () => {
     try {
@@ -909,7 +956,7 @@ const App: React.FC = () => {
                   <button onClick={() => setRosterViewMode('detail')} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${rosterViewMode === 'detail' ? 'bg-[#059669] text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}><User size={14} />DETAIL</button>
                 </div>
               </div>
-              {rosterViewMode === 'overview' && <RosterOverview roster={roster} minIlvl={minIlvl} onDeleteCharacter={handleDeleteCharacter} onAddCharacter={handleAddCharacter} onMemberClick={handleMemberClick} />}
+              {rosterViewMode === 'overview' && <RosterOverview roster={roster} minIlvl={minIlvl} onDeleteCharacter={handleDeleteCharacter} onAddCharacter={handleAddCharacter} onMemberClick={handleMemberClick} onSwapCharacters={handleSwapCharacters} />}
               {rosterViewMode === 'table' && <RosterTable roster={roster} minIlvl={minIlvl} />}
               {rosterViewMode === 'detail' && <CharacterDetailView roster={roster} minIlvl={minIlvl} initialMemberName={selectedMemberName} />}
             </div>

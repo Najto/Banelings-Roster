@@ -9,6 +9,7 @@ interface RosterOverviewProps {
   onDeleteCharacter?: (characterName: string, realm: string) => Promise<void>;
   onAddCharacter?: (memberName: string, isMain: boolean) => void;
   onMemberClick?: (memberName: string) => void;
+  onSwapCharacters?: (playerName: string, draggedCharName: string, draggedRealm: string, targetCharName: string, targetRealm: string) => Promise<void>;
 }
 
 const RoleIcon = ({ role }: { role: PlayerRole }) => {
@@ -27,15 +28,22 @@ const CharacterCell = ({
   minIlvl,
   onDelete,
   onAdd,
+  playerName,
+  onSwap,
 }: {
   char?: Character;
   isMain?: boolean;
   minIlvl: number;
   onDelete?: (characterName: string, realm: string) => Promise<void>;
   onAdd?: () => void;
+  playerName?: string;
+  onSwap?: (draggedCharName: string, draggedRealm: string, targetCharName: string, targetRealm: string) => Promise<void>;
 }) => {
   const [isHovered, setIsHovered] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [isSwapping, setIsSwapping] = useState(false);
 
   if (!char) {
     return (
@@ -54,11 +62,83 @@ const CharacterCell = ({
 
   const classColor = CLASS_COLORS[char.className] || '#fff';
 
+  const handleDragStart = (e: React.DragEvent) => {
+    if (!char || !playerName) return;
+
+    setIsDragging(true);
+    const dragData = {
+      charName: char.name,
+      realm: char.server || 'blackhand',
+      playerName: playerName,
+    };
+    e.dataTransfer.setData('application/json', JSON.stringify(dragData));
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragEnd = () => {
+    setIsDragging(false);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    if (!char || !playerName || !onSwap) return;
+
+    try {
+      const dragData = JSON.parse(e.dataTransfer.getData('application/json') || '{}');
+      // Only allow drop if from same member
+      if (dragData.playerName === playerName && dragData.charName !== char.name) {
+        e.preventDefault();
+        setIsDragOver(true);
+      }
+    } catch {
+      // Invalid drag data
+    }
+  };
+
+  const handleDragLeave = () => {
+    setIsDragOver(false);
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+
+    if (!char || !playerName || !onSwap || isSwapping) return;
+
+    try {
+      const dragData = JSON.parse(e.dataTransfer.getData('application/json') || '{}');
+
+      // Validate same member
+      if (dragData.playerName !== playerName) {
+        return;
+      }
+
+      // Don't drop on self
+      if (dragData.charName === char.name) {
+        return;
+      }
+
+      setIsSwapping(true);
+      await onSwap(dragData.charName, dragData.realm, char.name, char.server || 'blackhand');
+    } catch (error) {
+      console.error('Drop failed:', error);
+    } finally {
+      setIsSwapping(false);
+    }
+  };
+
   return (
     <div
       className={`p-2 border rounded transition-all hover:bg-white/[0.05] group min-h-[40px] flex flex-col justify-center relative ${
         isMain ? 'border-indigo-500/30 bg-indigo-500/5' : 'border-white/5 bg-black/40'
+      } ${isDragging ? 'opacity-50' : ''} ${isDragOver ? 'border-emerald-500/50 bg-emerald-500/10' : ''} ${
+        char && playerName ? 'cursor-grab active:cursor-grabbing' : ''
       }`}
+      draggable={!!char && !!playerName && !isDeleting && !isSwapping}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
@@ -104,11 +184,16 @@ const CharacterCell = ({
           <div className="w-2.5 h-2.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
         </div>
       )}
+      {isSwapping && (
+        <div className="absolute inset-0 bg-black/60 rounded flex items-center justify-center">
+          <div className="w-4 h-4 border-2 border-emerald-400/30 border-t-emerald-400 rounded-full animate-spin" />
+        </div>
+      )}
     </div>
   );
 };
 
-export const RosterOverview: React.FC<RosterOverviewProps> = ({ roster, minIlvl, onDeleteCharacter, onAddCharacter, onMemberClick }) => {
+export const RosterOverview: React.FC<RosterOverviewProps> = ({ roster, minIlvl, onDeleteCharacter, onAddCharacter, onMemberClick, onSwapCharacters }) => {
   const groupedPlayers = useMemo(() => {
     const groups: Record<PlayerRole, Player[]> = {
       [PlayerRole.TANK]: [],
@@ -179,6 +264,12 @@ export const RosterOverview: React.FC<RosterOverviewProps> = ({ roster, minIlvl,
                         minIlvl={minIlvl}
                         onDelete={onDeleteCharacter}
                         onAdd={() => onAddCharacter?.(player.name, true)}
+                        playerName={player.name}
+                        onSwap={async (draggedCharName, draggedRealm, targetCharName, targetRealm) => {
+                          if (onSwapCharacters) {
+                            await onSwapCharacters(player.name, draggedCharName, draggedRealm, targetCharName, targetRealm);
+                          }
+                        }}
                       />
                     </td>
                     {Array.from({ length: maxSplits }).map((_, i) => (
@@ -188,6 +279,12 @@ export const RosterOverview: React.FC<RosterOverviewProps> = ({ roster, minIlvl,
                           minIlvl={minIlvl}
                           onDelete={onDeleteCharacter}
                           onAdd={() => onAddCharacter?.(player.name, false)}
+                          playerName={player.name}
+                          onSwap={async (draggedCharName, draggedRealm, targetCharName, targetRealm) => {
+                            if (onSwapCharacters) {
+                              await onSwapCharacters(player.name, draggedCharName, draggedRealm, targetCharName, targetRealm);
+                            }
+                          }}
                         />
                       </td>
                     ))}

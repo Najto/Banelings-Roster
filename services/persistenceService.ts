@@ -240,6 +240,54 @@ export const persistenceService = {
     }
   },
 
+  async swapMainCharacter(
+    playerName: string,
+    newMainCharacterName: string,
+    newMainRealm: string,
+    oldMainCharacterName: string,
+    oldMainRealm: string
+  ): Promise<boolean> {
+    try {
+      // Update old main to be a split
+      const { error: oldMainError } = await supabase
+        .from('character_data')
+        .update({ is_main: false })
+        .eq('character_name', oldMainCharacterName)
+        .eq('realm', oldMainRealm.toLowerCase())
+        .eq('player_name', playerName);
+
+      if (oldMainError) {
+        console.error('Failed to update old main character:', oldMainError);
+        return false;
+      }
+
+      // Update new character to be main
+      const { error: newMainError } = await supabase
+        .from('character_data')
+        .update({ is_main: true })
+        .eq('character_name', newMainCharacterName)
+        .eq('realm', newMainRealm.toLowerCase())
+        .eq('player_name', playerName);
+
+      if (newMainError) {
+        console.error('Failed to update new main character:', newMainError);
+        // Try to rollback the first update
+        await supabase
+          .from('character_data')
+          .update({ is_main: true })
+          .eq('character_name', oldMainCharacterName)
+          .eq('realm', oldMainRealm.toLowerCase())
+          .eq('player_name', playerName);
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Exception during swap main character:', error);
+      return false;
+    }
+  },
+
   // ROSTER MANAGEMENT FUNCTIONS
   async loadRosterFromDatabase(): Promise<Player[]> {
     try {

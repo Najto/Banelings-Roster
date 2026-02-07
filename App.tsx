@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { INITIAL_ROSTER } from './constants';
-import { Player, MemberMapping, PlayerRole, SplitGroup, Character, SlotAudit, GearAudit } from './types';
+import { Player, MemberMapping, PlayerRole, SplitGroup, Character, SlotAudit, GearAudit, WoWClass } from './types';
 import { RosterTable } from './components/RosterTable';
 import { StatOverview } from './components/StatOverview';
 import { AnalyticsDashboard } from './components/AnalyticsDashboard';
@@ -9,6 +9,7 @@ import { SplitSetup } from './components/SplitSetup';
 import { RosterAudit } from './components/RosterAudit';
 import { CharacterDetailView } from './components/CharacterDetailView';
 import { RosterOverview } from './components/RosterOverview';
+import { AddCharacterModal } from './components/AddCharacterModal';
 import { Settings } from './components/Settings';
 import { fetchRosterFromSheet, fetchSplitsFromSheet } from './services/spreadsheetService';
 import { fetchRaiderIOData, getCurrentResetTime, computeWeeklyRaidKills } from './services/raiderioService';
@@ -71,6 +72,8 @@ const App: React.FC = () => {
   const [updateProgress, setUpdateProgress] = useState({ current: 0, total: 0 });
   const [error, setError] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState<string>("Nie");
+  const [addModalOpen, setAddModalOpen] = useState(false);
+  const [addModalContext, setAddModalContext] = useState<{ memberName: string; isMain: boolean } | null>(null);
 
   /**
    * Merges the raw roster data (from Google Sheet) with enriched data stored in Supabase.
@@ -128,25 +131,17 @@ const App: React.FC = () => {
     setError(null);
     try {
       const blizzToken = await fetchBlizzardToken();
-      const [rosterResult, splitsResult] = await Promise.all([
-        fetchRosterFromSheet(),
-        fetchSplitsFromSheet()
-      ]);
 
-      setSplits(splitsResult);
-      setMinIlvl(rosterResult.minIlvl);
-      setUpdateProgress({ current: 0, total: rosterResult.roster.length });
+      // Load roster from database instead of spreadsheet
+      const dbRoster = await persistenceService.loadRosterFromDatabase();
 
-      const mappings: MemberMapping[] = JSON.parse(localStorage.getItem('guild_mappings') || "[]");
-      
+      setUpdateProgress({ current: 0, total: dbRoster.length });
+
       const enrichedRoster: Player[] = [];
 
-      for (let i = 0; i < rosterResult.roster.length; i++) {
-        const player = rosterResult.roster[i];
+      for (let i = 0; i < dbRoster.length; i++) {
+        const player = dbRoster[i];
         setUpdateProgress(prev => ({ ...prev, current: i + 1 }));
-
-        const mapping = mappings.find(m => m.memberName.toLowerCase() === player.name.toLowerCase());
-        const finalRole = (mapping && mapping.role && mapping.role !== PlayerRole.UNKNOWN) ? mapping.role : player.role;
 
         const processChar = async (char: Character) => {
           const realm = char.server || "Blackhand";
@@ -374,7 +369,7 @@ const App: React.FC = () => {
           }
 
           // 4. Persist to DB
-          await persistenceService.upsertCharacterData(updatedChar, player.name, finalRole);
+          await persistenceService.upsertCharacterData(updatedChar, player.name, player.role);
           return updatedChar;
         };
 
@@ -386,7 +381,6 @@ const App: React.FC = () => {
 
         enrichedRoster.push({
           ...player,
-          role: finalRole,
           mainCharacter: enrichedMain,
           splits: enrichedSplits
         });
@@ -402,20 +396,300 @@ const App: React.FC = () => {
     }
   }, []);
 
-  // Initial Data Load
+  // Initial Data Load - Load from Database
   useEffect(() => {
     const initLoad = async () => {
       try {
-        const rosterResult = await fetchRosterFromSheet();
-        const merged = await mergeWithDatabase(rosterResult.roster);
-        setRoster(merged);
-        const splitsResult = await fetchSplitsFromSheet();
-        setSplits(splitsResult);
-        setMinIlvl(rosterResult.minIlvl);
-      } catch (e) {}
+        const dbRoster = await persistenceService.loadRosterFromDatabase();
+        setRoster(dbRoster);
+        const savedSplits = await persistenceService.loadSplits();
+        if (savedSplits) setSplits(savedSplits);
+      } catch (e) {
+        console.error('Failed to load initial data:', e);
+      }
     };
     initLoad();
-  }, [mergeWithDatabase]);
+  }, []);
+
+  // Delete Character Handler
+  const handleDeleteCharacter = useCallback(async (characterName: string, realm: string) => {
+    try {
+      const success = await persistenceService.deleteCharacter(characterName, realm);
+      if (success) {
+        const updatedRoster = await persistenceService.loadRosterFromDatabase();
+        setRoster(updatedRoster);
+      } else {
+        setError('Failed to delete character');
+      }
+    } catch (e) {
+      console.error('Failed to delete character:', e);
+      setError('Failed to delete character');
+    }
+  }, []);
+
+  // Add Character Handler
+  const handleAddCharacter = useCallback((memberName: string, isMain: boolean) => {
+    setAddModalContext({ memberName, isMain });
+    setAddModalOpen(true);
+  }, []);
+
+  // Refresh Single Character
+  const refreshSingleCharacter = useCallback(async (characterName: string, realm: string, memberName: string, isMain: boolean) => {
+    setIsUpdating(true);
+    setError(null);
+    try {
+      const blizzToken = await fetchBlizzardToken();
+      const player = roster.find(p => p.name === memberName);
+      if (!player) throw new Error('Player not found');
+
+      const char: Character = {
+        name: characterName,
+        className: WoWClass.UNKNOWN,
+        server: realm,
+        isMain: isMain,
+        playerName: memberName,
+        itemLevel: 0,
+      };
+
+      const processChar = async (char: Character) => {
+        // 1. Fetch Raider.io Data
+        const rio = await fetchRaiderIOData(char.name, realm);
+
+        let blizzSum = null, blizzStat = null, blizzAch = null, blizzColl = null, blizzProf = null, blizzEquip = null;
+        let blizzPvP = null, blizzPvPSolo = null, blizzPvP2v2 = null, blizzPvP3v3 = null, blizzReps = null, blizzQuests = null;
+
+        // 2. Fetch Blizzard Data (if token available)
+        if (blizzToken) {
+          await new Promise(r => setTimeout(r, 100));
+          [blizzSum, blizzStat, blizzAch, blizzColl, blizzProf, blizzEquip, blizzPvP, blizzReps, blizzQuests] = await Promise.all([
+            getCharacterSummary(blizzToken, realm, char.name),
+            getCharacterStats(blizzToken, realm, char.name),
+            getCharacterAchievements(blizzToken, realm, char.name),
+            getCharacterCollections(blizzToken, realm, char.name),
+            getCharacterProfessions(blizzToken, realm, char.name),
+            getCharacterEquipment(blizzToken, realm, char.name),
+            getCharacterPvPSummary(blizzToken, realm, char.name),
+            getCharacterReputations(blizzToken, realm, char.name),
+            getCharacterQuests(blizzToken, realm, char.name),
+          ].map(p => p.catch(() => null)));
+
+          [blizzPvPSolo, blizzPvP2v2, blizzPvP3v3] = await Promise.all([
+            getCharacterPvPBracket(blizzToken, realm, char.name, 'shuffle'),
+            getCharacterPvPBracket(blizzToken, realm, char.name, '2v2'),
+            getCharacterPvPBracket(blizzToken, realm, char.name, '3v3'),
+          ].map(p => p.catch(() => null)));
+        }
+
+        // 3. Fetch WarcraftLogs data
+        const wclData = await fetchWarcraftLogsData(char.name, realm).catch(() => null);
+
+        const repFactionMap: Record<string, string> = {
+          'Council of Dornogal': 'dornogal',
+          'Assembly of the Deeps': 'deeps',
+          'Hallowfall Arathi': 'arathi',
+          'The Severed Threads': 'threads',
+          "Beledar's Spawn": 'karesh',
+          'Brann Bronzebeard': 'vandals',
+          'Cartels of the Undermine': 'undermine',
+          'Gallagio Loyalty Rewards': 'gallagio',
+        };
+
+        const reputations: Character['reputations'] = { dornogal: 0, deeps: 0, arathi: 0, threads: 0, karesh: 0, vandals: 0, undermine: 0, gallagio: 0 };
+        if (blizzReps?.reputations) {
+          for (const rep of blizzReps.reputations) {
+            const factionName = rep.faction?.name;
+            const key = repFactionMap[factionName];
+            if (key && key in reputations) {
+              (reputations as any)[key] = rep.standing?.value || rep.standing?.raw || 0;
+            }
+          }
+        }
+
+        const completedQuestIds = new Set((blizzQuests?.quests || []).map((q: any) => q.id));
+
+        const updatedChar: Character = {
+          ...char,
+          ...(rio || {}),
+          itemLevel: blizzSum?.equipped_item_level || rio?.itemLevel || char.itemLevel,
+          className: rio?.className || blizzSum?.character_class?.name || char.className,
+          thumbnailUrl: blizzSum?.character_media?.href || rio?.thumbnailUrl || char.thumbnailUrl,
+          collections: {
+            mounts: blizzColl?.mounts?.mounts?.length || 0,
+            pets: blizzColl?.pets?.pets?.length || 0,
+            toys: blizzColl?.toys?.toys?.length || 0,
+            achievements: blizzAch?.total_quantity || 0,
+            titles: blizzSum?.titles?.length || 0
+          },
+          currencies: {
+            weathered: 0,
+            carved: 0,
+            runed: 0,
+            gilded: 0,
+            valorstones: 0,
+          },
+          pvp: {
+            honorLevel: blizzPvP?.honor_level || 0,
+            kills: blizzPvP?.honorable_kills || 0,
+            ratings: {
+              solo: blizzPvPSolo?.rating || 0,
+              v2: blizzPvP2v2?.rating || 0,
+              v3: blizzPvP3v3?.rating || 0,
+              rbg: 0,
+            },
+            games: {
+              season: (blizzPvPSolo?.season_match_statistics?.played || 0) + (blizzPvP2v2?.season_match_statistics?.played || 0) + (blizzPvP3v3?.season_match_statistics?.played || 0),
+              weekly: (blizzPvPSolo?.weekly_match_statistics?.played || 0) + (blizzPvP2v2?.weekly_match_statistics?.played || 0) + (blizzPvP3v3?.weekly_match_statistics?.played || 0),
+            },
+          },
+          reputations,
+          activities: {
+            worldQuests: completedQuestIds.size > 0 ? Math.min(completedQuestIds.size, 999) : 0,
+            events: {
+              theater: completedQuestIds.has(82946) || completedQuestIds.has(84042),
+              awakening: completedQuestIds.has(82710) || completedQuestIds.has(82787),
+              worldsoul: completedQuestIds.has(82458) || completedQuestIds.has(82459),
+              memories: completedQuestIds.has(84488) || completedQuestIds.has(84489),
+            },
+            cofferKeys: 0,
+            heroicDungeons: 0,
+            mythicDungeons: rio?.recentRuns?.length || 0,
+            highestMplus: rio?.recentRuns && rio.recentRuns.length > 0 ? Math.max(...rio.recentRuns.map(r => r.mythic_level)) : 0,
+          },
+          warcraftLogs: wclData ? { ...wclData, weeklyRaidKills: wclData.weeklyRaidKills } : undefined,
+          professions: blizzProf?.primaries?.map((p: any) => ({ name: p.profession.name, rank: p.rank })) || []
+        };
+
+        const resetDate = getCurrentResetTime().toISOString().split('T')[0];
+        const existingBaseline = char.raidKillBaseline;
+        const currentBossKills = updatedChar.raidBossKills || [];
+
+        const { count: rioWeeklyCount, details: rioDetails, newBaseline } =
+          computeWeeklyRaidKills(currentBossKills, existingBaseline, resetDate);
+
+        const wclDetails = (wclData?.weeklyRaidKills || []).map(k => ({
+          bossName: k.bossName,
+          difficulty: k.difficulty as 'Normal' | 'Heroic' | 'Mythic',
+          difficultyId: k.difficultyId,
+        }));
+
+        let finalDetails = rioDetails;
+        let finalCount = rioWeeklyCount;
+
+        if (wclDetails.length > rioDetails.length) {
+          finalDetails = wclDetails;
+          finalCount = wclDetails.length;
+        }
+
+        updatedChar.raidKillBaseline = newBaseline;
+        updatedChar.weeklyRaidBossKills = finalCount;
+        updatedChar.weeklyRaidKillDetails = finalDetails;
+
+        if (!updatedChar.gearAudit) {
+          updatedChar.gearAudit = {
+            sockets: 0, missingSockets: 0, enchantments: 0, tierCount: 0, sparkItems: 0, upgradeTrack: 'Explorer',
+            tierPieces: { helm: false, shoulder: false, chest: false, gloves: false, legs: false },
+            enchants: { cloak: false, chest: false, wrists: false, legs: false, feet: false, ring1: false, ring2: false, weapon: false, offhand: false, totalRank: 0, missingCount: 0 },
+            specificItems: {}, embellishments: [], gems: { rare: 0, epic: 0 },
+            itemTracks: { mythic: 0, heroic: 0, champion: 0, veteran: 0, adventurer: 0, explorer: 0 },
+            stats: { crit: 0, haste: 0, mastery: 0, vers: 0, critPct: 0, hastePct: 0, masteryPct: 0, versPct: 0 },
+            slots: {},
+            vault: { rank: 0, thisWeek: 0, raid: [{label: '-', ilvl: 0}, {label: '-', ilvl: 0}, {label: '-', ilvl: 0}], dungeon: [{label: '-', ilvl: 0}, {label: '-', ilvl: 0}, {label: '-', ilvl: 0}], world: [{label: '-', ilvl: 0}, {label: '-', ilvl: 0}, {label: '-', ilvl: 0}], score: 0 }
+          };
+        }
+
+        // Process Detailed Gear Audit using Blizzard Equipment Data
+        if (blizzEquip?.equipped_items) {
+          const slots: Record<string, SlotAudit> = {};
+          const itemTracks = { mythic: 0, heroic: 0, champion: 0, veteran: 0, adventurer: 0, explorer: 0 };
+          let totalGemsSlotted = 0, enchantsDone = 0, missingEnchantsCount = 0, tierCount = 0;
+
+          blizzEquip.equipped_items.forEach((item: any) => {
+            const ilvl = item.level?.value || 0;
+            const trackName = determineTrack(ilvl);
+
+            const trackKey = trackName.toLowerCase() as keyof typeof itemTracks;
+            if (trackKey in itemTracks) itemTracks[trackKey]++;
+
+            const hasEnchant = !!(item.enchantments?.length > 0);
+            const isEnchantable = ENCHANTABLE_TYPES.includes(item.slot.type);
+            if (isEnchantable) {
+              if (hasEnchant) enchantsDone++;
+              else missingEnchantsCount++;
+            }
+
+            const gemsSlotted = item.sockets?.filter((s: any) => s.item)?.length || 0;
+            totalGemsSlotted += gemsSlotted;
+
+            const isSetItem = !!item.set;
+            const isCanonicalTierSlot = TIER_TYPES.includes(item.slot.type);
+            const isTier = isSetItem && isCanonicalTierSlot;
+            if (isTier) tierCount++;
+
+            const internalKey = SLOT_MAP[item.slot.type] || item.slot.type.toLowerCase();
+            slots[internalKey] = {
+              name: item.name,
+              ilvl: ilvl,
+              track: trackName,
+              hasEnchant: hasEnchant,
+              isTier: isTier,
+              hasGem: gemsSlotted > 0,
+              gemsCount: gemsSlotted
+            };
+          });
+
+          updatedChar.gearAudit.itemTracks = itemTracks;
+          updatedChar.gearAudit.slots = { ...updatedChar.gearAudit.slots, ...slots };
+          updatedChar.gearAudit.sockets = totalGemsSlotted;
+          updatedChar.gearAudit.enchantments = enchantsDone;
+          updatedChar.gearAudit.enchants.missingCount = missingEnchantsCount;
+          updatedChar.gearAudit.tierCount = tierCount;
+          updatedChar.gearAudit.enchants.cloak = !!slots['back']?.hasEnchant;
+          updatedChar.gearAudit.enchants.chest = !!slots['chest']?.hasEnchant;
+          updatedChar.gearAudit.enchants.wrists = !!slots['wrist']?.hasEnchant;
+          updatedChar.gearAudit.enchants.legs = !!slots['legs']?.hasEnchant;
+          updatedChar.gearAudit.enchants.feet = !!slots['feet']?.hasEnchant;
+          updatedChar.gearAudit.enchants.ring1 = !!slots['finger1']?.hasEnchant;
+          updatedChar.gearAudit.enchants.ring2 = !!slots['finger2']?.hasEnchant;
+          updatedChar.gearAudit.enchants.weapon = !!slots['mainhand']?.hasEnchant;
+        }
+
+        if (blizzStat && updatedChar.gearAudit) {
+          const s = blizzStat;
+          updatedChar.gearAudit.stats = {
+            ...updatedChar.gearAudit.stats,
+            critPct: s.melee_crit?.value ?? s.spell_crit?.value ?? s.ranged_crit?.value ?? 0,
+            hastePct: s.melee_haste?.value ?? s.spell_haste?.value ?? s.ranged_haste?.value ?? 0,
+            masteryPct: s.mastery?.value ?? 0,
+            versPct: s.versatility_damage_done_bonus ?? 0
+          };
+        }
+
+        if (updatedChar.gearAudit) {
+          const sorted = [...finalDetails].sort((a, b) => b.difficultyId - a.difficultyId);
+          updatedChar.gearAudit.vault.raid = [
+            { label: finalCount >= 2 ? (sorted[1]?.difficulty || 'Normal') : '-', ilvl: 0 },
+            { label: finalCount >= 4 ? (sorted[3]?.difficulty || 'Normal') : '-', ilvl: 0 },
+            { label: finalCount >= 6 ? (sorted[5]?.difficulty || 'Normal') : '-', ilvl: 0 },
+          ];
+        }
+
+        await persistenceService.upsertCharacterData(updatedChar, memberName, player.role);
+        return updatedChar;
+      };
+
+      await processChar(char);
+
+      // Reload roster from database
+      const updatedRoster = await persistenceService.loadRosterFromDatabase();
+      setRoster(updatedRoster);
+      setLastUpdate(new Date().toLocaleTimeString());
+    } catch (e) {
+      console.error('Failed to refresh character:', e);
+      setError('Failed to add and refresh character');
+    } finally {
+      setIsUpdating(false);
+    }
+  }, [roster]);
 
   return (
     <div className="min-h-screen wow-gradient flex flex-col md:flex-row overflow-hidden h-screen text-slate-200">
@@ -508,7 +782,7 @@ const App: React.FC = () => {
                   <button onClick={() => setRosterViewMode('detail')} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${rosterViewMode === 'detail' ? 'bg-[#059669] text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}><User size={14} />DETAIL</button>
                 </div>
               </div>
-              {rosterViewMode === 'overview' && <RosterOverview roster={roster} minIlvl={minIlvl} />}
+              {rosterViewMode === 'overview' && <RosterOverview roster={roster} minIlvl={minIlvl} onDeleteCharacter={handleDeleteCharacter} onAddCharacter={handleAddCharacter} />}
               {rosterViewMode === 'table' && <RosterTable roster={roster} minIlvl={minIlvl} />}
               {rosterViewMode === 'detail' && <CharacterDetailView roster={roster} minIlvl={minIlvl} />}
             </div>
@@ -519,6 +793,20 @@ const App: React.FC = () => {
           {activeTab === 'settings' && <Settings />}
         </div>
       </main>
+
+      <AddCharacterModal
+        isOpen={addModalOpen}
+        onClose={() => {
+          setAddModalOpen(false);
+          setAddModalContext(null);
+        }}
+        onAdd={async (characterName, realm) => {
+          if (!addModalContext) return;
+          await refreshSingleCharacter(characterName, realm, addModalContext.memberName, addModalContext.isMain);
+        }}
+        memberName={addModalContext?.memberName || ''}
+        isMain={addModalContext?.isMain || false}
+      />
     </div>
   );
 };

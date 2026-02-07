@@ -1,11 +1,13 @@
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Player, Character, PlayerRole, ROLE_PRIORITY, CLASS_COLORS } from '../types';
-import { Shield, Heart, Sword, Target } from 'lucide-react';
+import { Shield, Heart, Sword, Target, Trash2 } from 'lucide-react';
 
 interface RosterOverviewProps {
   roster: Player[];
   minIlvl: number;
+  onDeleteCharacter?: (characterName: string, realm: string) => Promise<void>;
+  onAddCharacter?: (memberName: string, isMain: boolean) => void;
 }
 
 const RoleIcon = ({ role }: { role: PlayerRole }) => {
@@ -18,20 +20,49 @@ const RoleIcon = ({ role }: { role: PlayerRole }) => {
   }
 };
 
-const CharacterCell = ({ char, isMain = false, minIlvl }: { char?: Character, isMain?: boolean, minIlvl: number }) => {
-  if (!char) return <div className="p-2 border border-white/5 bg-black/20 rounded min-h-[40px]" />;
+const CharacterCell = ({
+  char,
+  isMain = false,
+  minIlvl,
+  onDelete,
+  onAdd,
+}: {
+  char?: Character;
+  isMain?: boolean;
+  minIlvl: number;
+  onDelete?: (characterName: string, realm: string) => void;
+  onAdd?: () => void;
+}) => {
+  const [isHovered, setIsHovered] = useState(false);
+
+  if (!char) {
+    return (
+      <div
+        className="p-2 border border-white/5 bg-black/20 rounded min-h-[40px] flex items-center justify-center hover:bg-white/[0.03] hover:border-blue-500/30 transition-all cursor-pointer group"
+        onClick={onAdd}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+      >
+        <span className="text-[10px] font-bold text-blue-400/60 group-hover:text-blue-400 uppercase tracking-wider transition-colors">
+          Add
+        </span>
+      </div>
+    );
+  }
 
   const classColor = CLASS_COLORS[char.className] || '#fff';
-  
+
   return (
-    <div 
-      className={`p-2 border rounded transition-all hover:bg-white/[0.05] group min-h-[40px] flex flex-col justify-center ${
+    <div
+      className={`p-2 border rounded transition-all hover:bg-white/[0.05] group min-h-[40px] flex flex-col justify-center relative ${
         isMain ? 'border-indigo-500/30 bg-indigo-500/5' : 'border-white/5 bg-black/40'
       }`}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
     >
       <div className="flex items-center justify-between gap-2">
-        <span 
-          className="text-[10px] font-black truncate uppercase tracking-tighter" 
+        <span
+          className="text-[10px] font-black truncate uppercase tracking-tighter"
           style={{ color: classColor }}
         >
           {char.name}
@@ -43,11 +74,25 @@ const CharacterCell = ({ char, isMain = false, minIlvl }: { char?: Character, is
       <div className="text-[7px] font-bold text-slate-700 uppercase tracking-widest mt-0.5 truncate group-hover:text-slate-500 transition-colors">
         {char.className}
       </div>
+
+      {isHovered && onDelete && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            if (window.confirm(`Delete ${char.name}?`)) {
+              onDelete(char.name, char.server || 'blackhand');
+            }
+          }}
+          className="absolute top-1 right-1 p-1 bg-red-500/80 hover:bg-red-600 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+        >
+          <Trash2 size={10} className="text-white" />
+        </button>
+      )}
     </div>
   );
 };
 
-export const RosterOverview: React.FC<RosterOverviewProps> = ({ roster, minIlvl }) => {
+export const RosterOverview: React.FC<RosterOverviewProps> = ({ roster, minIlvl, onDeleteCharacter, onAddCharacter }) => {
   const groupedPlayers = useMemo(() => {
     const groups: Record<PlayerRole, Player[]> = {
       [PlayerRole.TANK]: [],
@@ -109,11 +154,22 @@ export const RosterOverview: React.FC<RosterOverviewProps> = ({ roster, minIlvl 
                       </span>
                     </td>
                     <td className="px-6 py-3">
-                      <CharacterCell char={player.mainCharacter} isMain minIlvl={minIlvl} />
+                      <CharacterCell
+                        char={player.mainCharacter}
+                        isMain
+                        minIlvl={minIlvl}
+                        onDelete={onDeleteCharacter}
+                        onAdd={() => onAddCharacter?.(player.name, true)}
+                      />
                     </td>
                     {Array.from({ length: maxSplits }).map((_, i) => (
                       <td key={i} className="px-6 py-3">
-                        <CharacterCell char={player.splits[i]} minIlvl={minIlvl} />
+                        <CharacterCell
+                          char={player.splits[i]}
+                          minIlvl={minIlvl}
+                          onDelete={onDeleteCharacter}
+                          onAdd={() => onAddCharacter?.(player.name, false)}
+                        />
                       </td>
                     ))}
                   </tr>

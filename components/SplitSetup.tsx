@@ -650,7 +650,7 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
                     {Object.entries(group.armor).map(([type, count]) => (
                       <Tooltip key={type} content={ARMOR_DESCRIPTIONS[type] || ""}>
                         <div className="bg-white/[0.02] border border-white/5 p-2 rounded-lg text-center cursor-help hover:border-white/20 transition-all">
-                          <span className="block text-[111px] font-black uppercase text-slate-600 mb-1">{type}</span>
+                          <span className="block text-[1px] font-black uppercase text-slate-600 mb-1">{type}</span>
                           <span className="text-sm font-black text-white">{count}</span>
                         </div>
                       </Tooltip>

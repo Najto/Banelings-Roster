@@ -2,15 +2,15 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { SplitGroup, HelperCharacter, PlayerRole, CLASS_COLORS, ROLE_PRIORITY, WoWClass, Player, Character, VersionKey, VERSION_LABELS } from '../types';
 import { persistenceService } from '../services/persistenceService';
-import { 
-  Shield, 
-  Heart, 
-  Sword, 
-  Target, 
-  CheckCircle2, 
-  XCircle, 
-  Info, 
-  Boxes, 
+import {
+  Shield,
+  Heart,
+  Sword,
+  Target,
+  CheckCircle2,
+  XCircle,
+  Info,
+  Boxes,
   Brain,
   Swords,
   Zap,
@@ -38,7 +38,8 @@ import {
   Share2,
   HandHelping,
   ChevronDown,
-  GripVertical
+  GripVertical,
+  AlertTriangle
 } from 'lucide-react';
 
 interface SplitSetupProps {
@@ -143,21 +144,24 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
       ...group,
       helpers: group.helpers || [],
       players: group.players.map(p => {
-          const member = roster.find(m => 
-              m.mainCharacter.name.toLowerCase() === p.name.toLowerCase() || 
+          const member = roster.find(m =>
+              m.mainCharacter.name.toLowerCase() === p.name.toLowerCase() ||
               m.splits.some(s => s.name.toLowerCase() === p.name.toLowerCase())
           );
-          
+
           let resolvedServer = p.server;
           if (member) {
              const charMatch = [member.mainCharacter, ...member.splits].find(c => c.name.toLowerCase() === p.name.toLowerCase() && !!c.isMain === !!p.isMain);
              if (charMatch) resolvedServer = charMatch.server;
           }
 
-          return { 
-              ...p, 
-              playerName: member?.name || p.name,
-              server: resolvedServer
+          const isOrphaned = !roster.find(m => m.name === p.playerName);
+
+          return {
+              ...p,
+              playerName: member?.name || p.playerName || p.name,
+              server: resolvedServer,
+              isOrphaned
           };
       })
     }));
@@ -219,10 +223,11 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
   };
 
   const updateGroupStats = (group: SplitGroup): SplitGroup => {
-    const totalIlvl = group.players.reduce((sum, p) => sum + p.ilvl, 0);
+    const activePlayers = group.players.filter(p => !p.isOrphaned);
+    const totalIlvl = activePlayers.reduce((sum, p) => sum + p.ilvl, 0);
     return {
       ...group,
-      avgIlvl: group.players.length > 0 ? totalIlvl / group.players.length : 0,
+      avgIlvl: activePlayers.length > 0 ? totalIlvl / activePlayers.length : 0,
       armor: calculateArmor(group.players)
     };
   };
@@ -465,12 +470,18 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
             <div className="p-6 bg-indigo-500/5 border-b border-white/5 flex items-center justify-between">
               <div>
                 <h3 className="text-xl font-black text-white uppercase tracking-tight">{group.name}</h3>
-                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Average iLvl: <span className="text-indigo-400">{group.avgIlvl.toFixed(1)}</span></p>
+                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Average iLvl: <span className="text-indigo-400">{group.avgIlvl.toFixed(1)}</span> <span className="text-slate-700">(Active only)</span></p>
               </div>
               <div className="flex gap-2">
                   <div className="px-3 py-1 bg-black rounded-lg border border-white/5 text-[10px] font-black uppercase tracking-widest text-slate-400">
-                      {group.players.length} Active Chars
+                      {group.players.filter(p => !p.isOrphaned).length} Active Chars
                   </div>
+                  {group.players.filter(p => p.isOrphaned).length > 0 && (
+                    <div className="px-3 py-1 bg-red-500/10 rounded-lg border border-red-500/20 text-[10px] font-black uppercase tracking-widest text-red-500 flex items-center gap-1.5">
+                      <AlertTriangle size={10} />
+                      {group.players.filter(p => p.isOrphaned).length} Deleted
+                    </div>
+                  )}
               </div>
             </div>
 
@@ -479,7 +490,9 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
                 {Object.keys(PlayerRole).filter(r => r !== 'UNKNOWN').sort((a,b) => ROLE_PRIORITY[a as PlayerRole] - ROLE_PRIORITY[b as PlayerRole]).map(roleKey => {
                   const role = PlayerRole[roleKey as keyof typeof PlayerRole];
                   const membersOfRole = playersByRole[role];
-                  if (membersOfRole.length === 0) return null;
+                  const orphanedCharsOfRole = group.players.filter(p => p.role === role && p.isOrphaned);
+
+                  if (membersOfRole.length === 0 && orphanedCharsOfRole.length === 0) return null;
 
                   return (
                     <div key={role} className="space-y-2">
@@ -489,36 +502,64 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         {membersOfRole.map((member, idx) => {
-                          const assignedChar = group.players.find(p => p.playerName === member.name);
+                          const assignedChar = group.players.find(p => p.playerName === member.name && !p.isOrphaned);
 
                           if (assignedChar) {
-                            return (
+                            const isOrphaned = assignedChar.isOrphaned || false;
+                            const tooltipContent = isOrphaned
+                              ? `DELETED PLAYER: ${assignedChar.playerName} | Character: ${assignedChar.name} (${assignedChar.className}) | Server: ${assignedChar.server || 'Unknown'} | Item Level: ${assignedChar.ilvl} | Type: ${assignedChar.isMain ? 'Main' : 'Alt'} | WARNING: This player no longer exists in the roster`
+                              : '';
+
+                            const characterCard = (
                               <div
                                 key={member.id}
                                 draggable={true}
                                 onDragStart={(e) => handleDragStart(e, member.name, assignedChar.name, assignedChar.isMain, assignedChar.server, groupIdx)}
                                 onClick={() => setEditMember({ memberName: member.name, groupIndex: groupIdx })}
-                                className={`flex items-center justify-between p-2.5 rounded-xl bg-white/[0.02] border border-white/5 hover:border-white/10 transition-all group cursor-grab active:cursor-grabbing hover:bg-white/[0.04]`}
+                                className={`flex flex-col p-2.5 rounded-xl transition-all group cursor-grab active:cursor-grabbing ${
+                                  isOrphaned
+                                    ? 'bg-red-500/[0.03] border-2 border-red-500 hover:border-red-400 hover:bg-red-500/[0.06]'
+                                    : 'bg-white/[0.02] border border-white/5 hover:border-white/10 hover:bg-white/[0.04]'
+                                }`}
                               >
-                                <div className="flex items-center gap-3">
-                                  <div className="flex flex-col">
-                                    <span className="text-xs font-black truncate" style={{ color: CLASS_COLORS[assignedChar.className] }}>{assignedChar.name}</span>
-                                    <div className="flex items-center gap-1.5">
-                                        <span className={`text-[8px] font-bold uppercase px-1 rounded ${assignedChar.isMain ? 'bg-amber-500/10 text-amber-500' : 'bg-slate-800 text-slate-500'}`}>
-                                            {assignedChar.isMain ? 'Main' : 'Twink'}
-                                        </span>
-                                        <span className="text-[7px] text-slate-600 font-bold uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">({member.name})</span>
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-3">
+                                    <div className="flex flex-col">
+                                      <div className="flex items-center gap-1.5">
+                                        {isOrphaned && <AlertTriangle size={10} className="text-red-500" />}
+                                        <span className="text-xs font-black truncate" style={{ color: CLASS_COLORS[assignedChar.className] }}>{assignedChar.name}</span>
+                                      </div>
+                                      <div className="flex items-center gap-1.5">
+                                          <span className={`text-[8px] font-bold uppercase px-1 rounded ${assignedChar.isMain ? 'bg-amber-500/10 text-amber-500' : 'bg-slate-800 text-slate-500'}`}>
+                                              {assignedChar.isMain ? 'Main' : 'Twink'}
+                                          </span>
+                                          <span className="text-[7px] text-slate-600 font-bold uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">({member.name})</span>
+                                      </div>
                                     </div>
                                   </div>
+                                  <div className="flex items-center gap-2">
+                                      <span className={`text-[11px] font-black px-1.5 py-0.5 rounded ${assignedChar.ilvl >= minIlvl ? 'text-indigo-400 bg-indigo-400/5' : 'text-red-500 bg-red-500/10'}`}>
+                                          {assignedChar.ilvl}
+                                      </span>
+                                      <Settings2 size={10} className="text-slate-700 opacity-0 group-hover:opacity-100" />
+                                  </div>
                                 </div>
-                                <div className="flex items-center gap-2">
-                                    <span className={`text-[11px] font-black px-1.5 py-0.5 rounded ${assignedChar.ilvl >= minIlvl ? 'text-indigo-400 bg-indigo-400/5' : 'text-red-500 bg-red-500/10'}`}>
-                                        {assignedChar.ilvl}
-                                    </span>
-                                    <Settings2 size={10} className="text-slate-700 opacity-0 group-hover:opacity-100" />
-                                </div>
+                                {isOrphaned && (
+                                  <div className="mt-2 pt-2 border-t border-red-500/20 flex items-center gap-1.5">
+                                    <div className="px-2 py-0.5 bg-red-500/10 rounded border border-red-500/20 flex items-center gap-1">
+                                      <AlertTriangle size={8} className="text-red-500" />
+                                      <span className="text-[8px] font-black uppercase text-red-500">Player Deleted: {assignedChar.playerName}</span>
+                                    </div>
+                                  </div>
+                                )}
                               </div>
                             );
+
+                            return isOrphaned ? (
+                              <Tooltip key={member.id} content={tooltipContent}>
+                                {characterCard}
+                              </Tooltip>
+                            ) : characterCard;
                           } else {
                             return (
                               <div
@@ -541,6 +582,50 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
                               </div>
                             );
                           }
+                        })}
+
+                        {orphanedCharsOfRole.map((orphanedChar, idx) => {
+                          const tooltipContent = `DELETED PLAYER: ${orphanedChar.playerName} | Character: ${orphanedChar.name} (${orphanedChar.className}) | Server: ${orphanedChar.server || 'Unknown'} | Item Level: ${orphanedChar.ilvl} | Type: ${orphanedChar.isMain ? 'Main' : 'Alt'} | WARNING: This player no longer exists in the roster`;
+
+                          return (
+                            <Tooltip key={`orphaned-${idx}`} content={tooltipContent}>
+                              <div
+                                draggable={true}
+                                onDragStart={(e) => handleDragStart(e, orphanedChar.playerName, orphanedChar.name, orphanedChar.isMain, orphanedChar.server, groupIdx)}
+                                onClick={() => setEditMember({ memberName: orphanedChar.playerName, groupIndex: groupIdx })}
+                                className="flex flex-col p-2.5 rounded-xl transition-all group cursor-grab active:cursor-grabbing bg-red-500/[0.03] border-2 border-red-500 hover:border-red-400 hover:bg-red-500/[0.06]"
+                              >
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-3">
+                                    <div className="flex flex-col">
+                                      <div className="flex items-center gap-1.5">
+                                        <AlertTriangle size={10} className="text-red-500" />
+                                        <span className="text-xs font-black truncate" style={{ color: CLASS_COLORS[orphanedChar.className] }}>{orphanedChar.name}</span>
+                                      </div>
+                                      <div className="flex items-center gap-1.5">
+                                          <span className={`text-[8px] font-bold uppercase px-1 rounded ${orphanedChar.isMain ? 'bg-amber-500/10 text-amber-500' : 'bg-slate-800 text-slate-500'}`}>
+                                              {orphanedChar.isMain ? 'Main' : 'Twink'}
+                                          </span>
+                                          <span className="text-[7px] text-slate-600 font-bold uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">({orphanedChar.playerName})</span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                      <span className={`text-[11px] font-black px-1.5 py-0.5 rounded ${orphanedChar.ilvl >= minIlvl ? 'text-indigo-400 bg-indigo-400/5' : 'text-red-500 bg-red-500/10'}`}>
+                                          {orphanedChar.ilvl}
+                                      </span>
+                                      <Settings2 size={10} className="text-slate-700 opacity-0 group-hover:opacity-100" />
+                                  </div>
+                                </div>
+                                <div className="mt-2 pt-2 border-t border-red-500/20 flex items-center gap-1.5">
+                                  <div className="px-2 py-0.5 bg-red-500/10 rounded border border-red-500/20 flex items-center gap-1">
+                                    <AlertTriangle size={8} className="text-red-500" />
+                                    <span className="text-[8px] font-black uppercase text-red-500">Player Deleted: {orphanedChar.playerName}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            </Tooltip>
+                          );
                         })}
                       </div>
                     </div>
@@ -730,10 +815,49 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
             <div className="p-6 space-y-3 max-h-[60vh] overflow-y-auto custom-scrollbar">
               {(() => {
                 const player = roster.find(r => r.name === editMember.memberName);
-                if (!player) return <p className="text-slate-500 text-xs italic">Member nicht im Roster gefunden.</p>;
+                const activePlayerInGroup = currentSplits[editMember.groupIndex].players.find(p => p.playerName === editMember.memberName);
+                const isOrphanedAssignment = activePlayerInGroup?.isOrphaned || false;
+
+                if (!player && !isOrphanedAssignment) {
+                  return <p className="text-slate-500 text-xs italic">Member nicht im Roster gefunden.</p>;
+                }
+
+                if (isOrphanedAssignment) {
+                  return (
+                    <>
+                      <div className="bg-red-500/10 border-2 border-red-500 rounded-xl p-4 mb-4">
+                        <div className="flex items-start gap-3">
+                          <AlertTriangle size={20} className="text-red-500 flex-shrink-0 mt-0.5" />
+                          <div>
+                            <h4 className="text-sm font-black uppercase text-red-500 mb-1">Player No Longer Exists</h4>
+                            <p className="text-[11px] text-red-400 leading-relaxed">
+                              The player "<span className="font-black">{activePlayerInGroup.playerName}</span>" has been removed from the roster. This character assignment is preserved for reference but should be removed or reassigned.
+                            </p>
+                            <div className="mt-3 p-3 bg-black/40 rounded-lg border border-red-500/20">
+                              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Last Known Information:</p>
+                              <div className="space-y-1 text-[10px] text-slate-300">
+                                <p><span className="text-slate-500">Character:</span> <span className="font-black" style={{ color: CLASS_COLORS[activePlayerInGroup.className] }}>{activePlayerInGroup.name}</span></p>
+                                <p><span className="text-slate-500">Class:</span> {activePlayerInGroup.className}</p>
+                                <p><span className="text-slate-500">Server:</span> {activePlayerInGroup.server || 'Unknown'}</p>
+                                <p><span className="text-slate-500">Item Level:</span> {activePlayerInGroup.ilvl}</p>
+                                <p><span className="text-slate-500">Type:</span> {activePlayerInGroup.isMain ? 'Main' : 'Alt'}</p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => changeCharacter(editMember.groupIndex, editMember.memberName, null)}
+                        className="w-full flex items-center justify-center gap-2 p-4 rounded-xl border-2 border-red-500 bg-red-500/10 text-red-500 hover:bg-red-500/20 text-[11px] font-black uppercase tracking-widest transition-all"
+                      >
+                        <Trash2 size={16} />
+                        Remove Orphaned Assignment
+                      </button>
+                    </>
+                  );
+                }
 
                 const allChars = [player.mainCharacter, ...player.splits];
-                const activePlayerInGroup = currentSplits[editMember.groupIndex].players.find(p => p.playerName === editMember.memberName);
 
                 const assignedInOtherGroups = currentSplits
                   .filter((_, idx) => idx !== editMember.groupIndex)

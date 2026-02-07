@@ -328,6 +328,7 @@ export interface SplitGroup {
     isMain: boolean;
     ilvl: number;
     server?: string;
+    isOrphaned?: boolean;
   }[];
   helpers?: HelperCharacter[];
   buffs: RaidBuff[];

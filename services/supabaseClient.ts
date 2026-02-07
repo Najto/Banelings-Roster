@@ -3,11 +3,11 @@ import { createClient } from '@supabase/supabase-js';
 
 /**
  * Direct credentials for the user's Supabase instance.
- * Using hardcoded strings as the primary source to guarantee resolution
+ * Using hardcoded strings as the primary source to guarantee resolution 
  * in environments where environment variables might be flaky.
  */
 const SUPABASE_URL = "https://snxgbxwjldbknntpxuwu.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNueGdieHdqbGRia25udHB4dXd1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAyMjU3NDAsImV4cCI6MjA4NTgwMTc0MH0.f2FX9cDEzZSoMi-cqXkH0s6Os4OQeVEeetrbADfKsnk";
+const SUPABASE_ANON_KEY = "sb_publishable_rff9UwhW5ng7gJXeIdcQyA_SASz9qZv";
 
 /**
  * Safely retrieves environment variables as secondary fallbacks.

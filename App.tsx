@@ -19,9 +19,10 @@ import { persistenceService } from './services/persistenceService';
 import { configService, IlvlThresholds } from './services/configService';
 import { supabase } from './services/supabaseClient';
 import { realtimeService } from './services/realtimeService';
+import { presenceService } from './services/presenceService';
 import Toast from './components/Toast';
 import { useToast } from './hooks/useToast';
-import { LayoutGrid, Users, Trophy, RefreshCw, Settings as SettingsIcon, AlertTriangle, Zap, Split, ClipboardList, Database, List, User, Loader2, Layout, AlertCircle, X } from 'lucide-react';
+import { LayoutGrid, Users, Trophy, RefreshCw, Settings as SettingsIcon, AlertTriangle, Zap, Split, ClipboardList, Database, List, User, Loader2, Layout, AlertCircle, X, Eye } from 'lucide-react';
 
 const SLOT_MAP: Record<string, string> = {
   'HEAD': 'head',
@@ -87,6 +88,7 @@ const App: React.FC = () => {
   const [addModalContext, setAddModalContext] = useState<{ memberName: string; isMain: boolean } | null>(null);
   const [migrationBanner, setMigrationBanner] = useState<{ show: boolean; count: number }>({ show: false, count: 0 });
   const [migrationDismissed, setMigrationDismissed] = useState(false);
+  const [globalActiveUsers, setGlobalActiveUsers] = useState(0);
   const { toasts, showToast, dismissToast } = useToast();
 
   useEffect(() => {
@@ -525,6 +527,20 @@ const App: React.FC = () => {
   }, [showToast]);
 
   useEffect(() => {
+    const unsubscribePresence = presenceService.trackPresence(
+      'global-app',
+      'main',
+      (count: number) => {
+        setGlobalActiveUsers(count);
+      }
+    );
+
+    return () => {
+      unsubscribePresence();
+    };
+  }, []);
+
+  useEffect(() => {
     if (activeTab !== 'settings') {
       const reloadThresholds = async () => {
         const thresholds = await configService.getIlvlThresholds();
@@ -905,9 +921,19 @@ const App: React.FC = () => {
     <div className="min-h-screen wow-gradient flex flex-col md:flex-row overflow-hidden h-screen text-slate-200">
       <Toast toasts={toasts} onDismiss={dismissToast} />
       <nav className="w-full md:w-64 bg-[#050507] border-b md:border-b-0 md:border-r border-white/5 p-6 space-y-8 sticky top-0 md:h-screen z-10 flex flex-col shadow-2xl">
-        <div className="flex items-center gap-3">
-          <img src="/96f31eb4f56a49f3e069065c7614c591.png" alt="Banelings" className="w-10 h-10 rounded-xl shadow-lg" />
-          <h1 className="text-xl font-black tracking-tighter text-white uppercase italic">Banelings</h1>
+        <div className="space-y-3">
+          <div className="flex items-center gap-3">
+            <img src="/96f31eb4f56a49f3e069065c7614c591.png" alt="Banelings" className="w-10 h-10 rounded-xl shadow-lg" />
+            <h1 className="text-xl font-black tracking-tighter text-white uppercase italic">Banelings</h1>
+          </div>
+          {globalActiveUsers > 0 && (
+            <div className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-blue-500/10 to-emerald-500/10 border border-blue-500/30 rounded-lg">
+              <Eye size={14} className="text-blue-400" />
+              <span className="text-xs font-bold text-blue-400">
+                {globalActiveUsers} {globalActiveUsers === 1 ? 'user online' : 'users online'}
+              </span>
+            </div>
+          )}
         </div>
 
         <div className="space-y-1 flex-1">

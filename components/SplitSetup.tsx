@@ -4,6 +4,7 @@ import { SplitGroup, HelperCharacter, PlayerRole, CLASS_COLORS, ROLE_PRIORITY, W
 import { persistenceService } from '../services/persistenceService';
 import { supabase } from '../services/supabaseClient';
 import { realtimeService } from '../services/realtimeService';
+import { presenceService } from '../services/presenceService';
 import Toast from './Toast';
 import { useToast } from '../hooks/useToast';
 import {
@@ -44,7 +45,9 @@ import {
   GripVertical,
   AlertTriangle,
   LogIn,
-  LogOut
+  LogOut,
+  Users,
+  Eye
 } from 'lucide-react';
 
 interface SplitSetupProps {
@@ -149,6 +152,7 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
   const [loginPassword, setLoginPassword] = useState('');
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [isRealtimeConnected, setIsRealtimeConnected] = useState(false);
+  const [activeUsers, setActiveUsers] = useState(0);
   const isSavingRef = useRef(false);
   const { toasts, showToast, dismissToast } = useToast();
 
@@ -262,11 +266,21 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
       }
     );
 
+    const unsubscribePresence = presenceService.trackPresence(
+      'split-setup',
+      currentVersion,
+      (count: number) => {
+        setActiveUsers(count);
+      }
+    );
+
     setIsRealtimeConnected(true);
 
     return () => {
       unsubscribe();
+      unsubscribePresence();
       setIsRealtimeConnected(false);
+      setActiveUsers(0);
     };
   }, [currentVersion, resolveSplits, showToast]);
 
@@ -523,10 +537,20 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
                   <Cloud size={12} />
                   <span className="text-[9px] font-black uppercase tracking-widest">{VERSION_LABELS[currentVersion]} - Cloud Synced</span>
                   {isRealtimeConnected && (
-                    <div className="flex items-center gap-1">
-                      <span className="text-slate-600">•</span>
-                      <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" title="Real-time sync active" />
-                    </div>
+                    <>
+                      <div className="flex items-center gap-1">
+                        <span className="text-slate-600">•</span>
+                        <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" title="Real-time sync active" />
+                      </div>
+                      {activeUsers > 0 && (
+                        <div className="flex items-center gap-1.5 px-2 py-0.5 bg-blue-500/20 border border-blue-500/30 rounded-full">
+                          <Eye size={10} className="text-blue-400" />
+                          <span className="text-[9px] font-bold text-blue-400 tracking-wide">
+                            {activeUsers} {activeUsers === 1 ? 'viewer' : 'viewers'}
+                          </span>
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               ) : syncStatus === 'error' ? (

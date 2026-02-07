@@ -15,6 +15,7 @@ export const CharacterClaim: React.FC<CharacterClaimProps> = ({ roster, userId, 
   const [claims, setClaims] = useState<UserClaim[]>([]);
   const [allClaims, setAllClaims] = useState<UserClaim[]>([]);
   const [battlenetChars, setBattlenetChars] = useState<any[]>([]);
+  const [battlenetConnection, setBattlenetConnection] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [claiming, setClaiming] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -27,15 +28,17 @@ export const CharacterClaim: React.FC<CharacterClaimProps> = ({ roster, userId, 
     setLoading(true);
     setError(null);
     try {
-      const [userClaims, allClaimsData, cachedChars] = await Promise.all([
+      const [userClaims, allClaimsData, cachedChars, connection] = await Promise.all([
         claimService.getUserClaims(userId),
         claimService.getAllClaims(),
-        battlenetOAuthService.getCachedCharacters(userId)
+        battlenetOAuthService.getCachedCharacters(userId),
+        battlenetOAuthService.getConnection(userId)
       ]);
 
       setClaims(userClaims);
       setAllClaims(allClaimsData);
       setBattlenetChars(cachedChars);
+      setBattlenetConnection(connection);
     } catch (e) {
       setError('Failed to load claim data');
     } finally {
@@ -102,6 +105,21 @@ export const CharacterClaim: React.FC<CharacterClaimProps> = ({ roster, userId, 
         <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 flex items-center gap-3">
           <AlertCircle className="text-red-500" size={20} />
           <p className="text-red-400 text-sm font-bold">{error}</p>
+        </div>
+      )}
+
+      {!battlenetConnection && (
+        <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-6 space-y-4">
+          <div className="flex items-center gap-3">
+            <AlertCircle className="text-amber-500" size={24} />
+            <h3 className="text-lg font-black text-white uppercase tracking-wider">Battle.net Not Connected</h3>
+          </div>
+          <p className="text-slate-300 text-sm leading-relaxed">
+            To claim characters, you need to connect your Battle.net account. This allows us to verify that you own the characters you're claiming.
+          </p>
+          <p className="text-slate-400 text-xs">
+            Go to <span className="text-indigo-400 font-bold">Settings</span> to connect your Battle.net account.
+          </p>
         </div>
       )}
 
@@ -218,10 +236,10 @@ export const CharacterClaim: React.FC<CharacterClaimProps> = ({ roster, userId, 
         </div>
       </div>
 
-      {battlenetChars.length === 0 && (
+      {battlenetConnection && battlenetChars.length === 0 && (
         <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4">
           <p className="text-amber-400 text-sm">
-            No Battle.net characters loaded. The characters will be fetched when you log in with Battle.net.
+            No Battle.net characters found. Make sure you have World of Warcraft characters on your Battle.net account.
           </p>
         </div>
       )}

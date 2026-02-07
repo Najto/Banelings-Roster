@@ -20,6 +20,8 @@ import { authService, AuthState } from './services/authService';
 import { battlenetOAuthService } from './services/battlenetOAuthService';
 import { claimService } from './services/claimService';
 import { CharacterClaim } from './components/CharacterClaim';
+import { AuthModal } from './components/AuthModal';
+import { BattleNetConnection } from './components/BattleNetConnection';
 import type { User as SupaUser } from '@supabase/supabase-js';
 
 const SLOT_MAP: Record<string, string> = {
@@ -80,6 +82,8 @@ const App: React.FC = () => {
   const [authLoading, setAuthLoading] = useState(true);
   const [battlenetId, setBattlenetId] = useState<string>('');
   const [userClaims, setUserClaims] = useState<any[]>([]);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [battlenetConnection, setBattlenetConnection] = useState<any>(null);
 
   /**
    * Merges the raw roster data (from Google Sheet) with enriched data stored in Supabase.
@@ -430,18 +434,7 @@ const App: React.FC = () => {
     authService.getSession().then(async ({ session }) => {
       setAuthUser(session?.user ?? null);
       if (session?.user) {
-        const bnetId = session.user.user_metadata?.iss || session.user.id;
-        setBattlenetId(bnetId);
-
-        const providerToken = (session as any).provider_token;
-        if (providerToken) {
-          const chars = await battlenetOAuthService.fetchCharacters(providerToken);
-          await battlenetOAuthService.cacheCharacters(session.user.id, chars);
-          await claimService.verifyUserClaims(session.user.id);
-        }
-
-        const claims = await claimService.getUserClaims(session.user.id);
-        setUserClaims(claims);
+        await loadUserData(session.user.id);
       }
       setAuthLoading(false);
     });
@@ -449,35 +442,41 @@ const App: React.FC = () => {
     const subscription = authService.onAuthStateChange(async (user, session) => {
       setAuthUser(user);
       if (user) {
-        const bnetId = user.user_metadata?.iss || user.id;
-        setBattlenetId(bnetId);
-
-        const providerToken = (session as any)?.provider_token;
-        if (providerToken) {
-          const chars = await battlenetOAuthService.fetchCharacters(providerToken);
-          await battlenetOAuthService.cacheCharacters(user.id, chars);
-          await claimService.verifyUserClaims(user.id);
-        }
-
-        const claims = await claimService.getUserClaims(user.id);
-        setUserClaims(claims);
+        await loadUserData(user.id);
       } else {
         setBattlenetId('');
         setUserClaims([]);
+        setBattlenetConnection(null);
       }
       setAuthLoading(false);
     });
     return () => subscription.unsubscribe();
   }, []);
 
-  const handleBattleNetLogin = async () => {
-    await authService.signInWithBattleNet();
+  const loadUserData = async (userId: string) => {
+    const connection = await battlenetOAuthService.getConnection(userId);
+    setBattlenetConnection(connection);
+
+    if (connection) {
+      setBattlenetId(connection.battlenet_id);
+      const chars = await battlenetOAuthService.fetchCharacters(connection.access_token, connection.region);
+      await battlenetOAuthService.cacheCharacters(userId, chars);
+      await claimService.verifyUserClaims(userId);
+    }
+
+    const claims = await claimService.getUserClaims(userId);
+    setUserClaims(claims);
   };
 
   const handleLogout = async () => {
     await authService.signOut();
     setUserClaims([]);
     setBattlenetId('');
+    setBattlenetConnection(null);
+  };
+
+  const handleAuthSuccess = () => {
+    setShowAuthModal(false);
   };
 
   return (
@@ -494,7 +493,7 @@ const App: React.FC = () => {
             { id: 'audit', label: 'Audit-Beta', icon: ClipboardList },
             { id: 'splits', label: 'Split Setup', icon: Split },
             { id: 'analytics', label: 'Performance', icon: LayoutGrid },
-            { id: 'claims', label: 'My Claims', icon: Shield },
+            ...(authUser ? [{ id: 'claims', label: 'My Claims', icon: Shield }] : []),
             { id: 'settings', label: 'Config', icon: SettingsIcon },
           ].map((item) => (
             <button 
@@ -517,14 +516,14 @@ const App: React.FC = () => {
             <div className="bg-black/40 p-3 rounded-xl border border-white/5 space-y-2">
               <div className="flex items-center gap-2">
                 <div className="w-6 h-6 rounded-lg bg-emerald-500/10 flex items-center justify-center">
-                  <Shield size={12} className="text-emerald-400" />
+                  <User size={12} className="text-emerald-400" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-[10px] font-black text-white uppercase tracking-widest truncate">
-                    {authUser.user_metadata?.battletag || authUser.email || 'Battle.net User'}
+                    {authUser.email || 'User'}
                   </p>
                   <p className="text-[8px] text-emerald-500 font-bold uppercase tracking-widest">
-                    {userClaims.length > 0 ? `${userClaims.length} Claimed` : 'No Claims'}
+                    {battlenetConnection ? 'Battle.net Connected' : 'No Battle.net'}
                   </p>
                 </div>
               </div>
@@ -534,7 +533,7 @@ const App: React.FC = () => {
                   className="w-full flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg bg-indigo-600/20 border border-indigo-500/30 text-indigo-300 text-[9px] font-black uppercase tracking-widest hover:bg-indigo-600/30 transition-all"
                 >
                   <Shield size={10} />
-                  View Claims
+                  {userClaims.length} Claims
                 </button>
               )}
               <button
@@ -548,18 +547,18 @@ const App: React.FC = () => {
           ) : (
             <div className="bg-black/40 p-3 rounded-xl border border-white/5 space-y-2">
               <div className="flex items-center gap-2 mb-2">
-                <Shield size={14} className="text-slate-500" />
-                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Authentication</p>
+                <User size={14} className="text-slate-500" />
+                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Account</p>
               </div>
               <button
-                onClick={handleBattleNetLogin}
-                className="w-full flex items-center justify-center gap-2 px-3 py-3 rounded-lg bg-[#148eff] text-white text-[10px] font-black uppercase tracking-widest hover:bg-[#0d7ae0] transition-all shadow-lg"
+                onClick={() => setShowAuthModal(true)}
+                className="w-full flex items-center justify-center gap-2 px-3 py-3 rounded-lg bg-indigo-600 text-white text-[10px] font-black uppercase tracking-widest hover:bg-indigo-500 transition-all shadow-lg"
               >
-                <Shield size={12} />
-                Login with Battle.net
+                <LogIn size={12} />
+                Sign In / Register
               </button>
               <p className="text-[8px] text-slate-600 text-center leading-relaxed">
-                Sign in to claim your characters and access personalized features
+                Create an account to claim characters and access personalized features
               </p>
             </div>
           )}
@@ -641,20 +640,40 @@ const App: React.FC = () => {
           )}
           {activeTab === 'claims' && !authUser && (
             <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-8 text-center">
-              <Shield className="mx-auto mb-4 text-amber-500" size={48} />
+              <User className="mx-auto mb-4 text-amber-500" size={48} />
               <h3 className="text-xl font-black text-white uppercase tracking-wider mb-2">Login Required</h3>
-              <p className="text-slate-400 mb-4">Please log in with your Battle.net account to claim characters.</p>
+              <p className="text-slate-400 mb-4">Please log in to claim characters.</p>
               <button
-                onClick={handleBattleNetLogin}
-                className="px-6 py-3 bg-[#148eff] text-white rounded-lg text-sm font-black uppercase tracking-wider hover:bg-[#0d7ae0] transition-all"
+                onClick={() => setShowAuthModal(true)}
+                className="px-6 py-3 bg-indigo-600 text-white rounded-lg text-sm font-black uppercase tracking-wider hover:bg-indigo-500 transition-all"
               >
-                Login with Battle.net
+                Sign In / Register
               </button>
             </div>
           )}
-          {activeTab === 'settings' && <Settings />}
+          {activeTab === 'settings' && (
+            <div className="space-y-6">
+              <Settings />
+              {authUser && (
+                <div>
+                  <h3 className="text-xl font-black text-white uppercase tracking-wider mb-4">Battle.net Integration</h3>
+                  <BattleNetConnection
+                    userId={authUser.id}
+                    onConnectionChange={() => loadUserData(authUser.id)}
+                  />
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </main>
+
+      {showAuthModal && (
+        <AuthModal
+          onClose={() => setShowAuthModal(false)}
+          onSuccess={handleAuthSuccess}
+        />
+      )}
     </div>
   );
 };

@@ -15,16 +15,11 @@ export const authService = {
   },
 
   async signUp(email: string, password: string) {
-    const { data, error } = await supabase.auth.signUp({ email, password });
-    return { data, error };
-  },
-
-  async signInWithBattleNet() {
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider: 'battlenet',
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
       options: {
-        scopes: 'wow.profile',
-        redirectTo: window.location.origin
+        emailRedirectTo: window.location.origin
       }
     });
     return { data, error };
@@ -40,9 +35,18 @@ export const authService = {
     return { session: data.session, error };
   },
 
-  getBattleNetAccessToken(): string | null {
-    const session = supabase.auth.getSession();
-    return session ? (session as any).provider_token : null;
+  async resetPassword(email: string) {
+    const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`
+    });
+    return { data, error };
+  },
+
+  async updatePassword(newPassword: string) {
+    const { data, error } = await supabase.auth.updateUser({
+      password: newPassword
+    });
+    return { data, error };
   },
 
   onAuthStateChange(callback: (user: User | null, session: Session | null) => void) {

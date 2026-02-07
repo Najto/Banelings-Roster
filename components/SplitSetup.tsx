@@ -2,6 +2,7 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { SplitGroup, HelperCharacter, PlayerRole, CLASS_COLORS, ROLE_PRIORITY, WoWClass, Player, Character, VersionKey, VERSION_LABELS } from '../types';
 import { persistenceService } from '../services/persistenceService';
+import { supabase } from '../services/supabaseClient';
 import {
   Shield,
   Heart,
@@ -23,7 +24,6 @@ import {
   FastForward,
   PlusCircle,
   Sparkles,
-  RefreshCw,
   FileSpreadsheet,
   Globe,
   Settings2,
@@ -39,7 +39,9 @@ import {
   HandHelping,
   ChevronDown,
   GripVertical,
-  AlertTriangle
+  AlertTriangle,
+  LogIn,
+  LogOut
 } from 'lucide-react';
 
 interface SplitSetupProps {
@@ -138,6 +140,10 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
   const [showCopyDialog, setShowCopyDialog] = useState(false);
   const [copyFrom, setCopyFrom] = useState<VersionKey>('main');
   const [copyTo, setCopyTo] = useState<VersionKey>('alt1');
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [showLoginDialog, setShowLoginDialog] = useState(false);
+  const [loginEmail, setLoginEmail] = useState('admin');
+  const [loginPassword, setLoginPassword] = useState('');
 
   const resolveSplits = useCallback((baseSplits: SplitGroup[]) => {
     return baseSplits.map(group => ({
@@ -168,6 +174,46 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
   }, [roster]);
 
   useEffect(() => {
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      setIsAdmin(!!session?.user);
+    };
+    checkAuth();
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      setIsAdmin(!!session?.user);
+    });
+
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
+  }, []);
+
+  const handleLogin = async () => {
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: `${loginEmail}@admin.local`,
+        password: loginPassword,
+      });
+
+      if (error) {
+        alert('Login failed: Invalid credentials');
+        return;
+      }
+
+      setShowLoginDialog(false);
+      setLoginPassword('');
+    } catch (error) {
+      alert('Login failed');
+    }
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setIsAdmin(false);
+  };
+
+  useEffect(() => {
     const initSource = async () => {
       setSyncStatus('syncing');
       const remoteData = await persistenceService.loadSplits(currentVersion);
@@ -184,6 +230,11 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
   }, [currentVersion, splits, resolveSplits]);
 
   const saveWebSplits = async (newSplits: SplitGroup[]) => {
+    if (currentVersion === 'main' && !isAdmin) {
+      alert('You have to be an admin to do that');
+      return;
+    }
+
     setCurrentSplits(newSplits);
     setSyncStatus('syncing');
     const success = await persistenceService.saveSplits(newSplits, currentVersion);
@@ -195,6 +246,12 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
       alert('Source and destination must be different.');
       return;
     }
+
+    if (copyTo === 'main' && !isAdmin) {
+      alert('You have to be an admin to do that');
+      return;
+    }
+
     const confirmed = confirm(`Copy ${VERSION_LABELS[copyFrom]} to ${VERSION_LABELS[copyTo]}? This will overwrite the destination.`);
     if (!confirmed) return;
 
@@ -435,26 +492,25 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
 
             <div className="h-4 w-px bg-white/10" />
 
-            <button
-              onClick={async () => {
-                const pw = prompt("Enter admin password to reset cloud:");
-                if (pw !== 'admin1337') {
-                  if (pw !== null) alert("Incorrect password.");
-                  return;
-                }
-                const existingHelpers = currentSplits.map(g => g.helpers || []);
-                const base = resolveSplits(splits).map((g, i) => ({
-                  ...g,
-                  helpers: existingHelpers[i] || []
-                }));
-                await saveWebSplits(base);
-              }}
-              className="group flex items-center gap-2 text-slate-600 hover:text-red-400 transition-colors"
-              title="Overwrite Cloud with Spreadsheet Data"
-            >
-              <RefreshCw size={12} className="group-hover:rotate-180 transition-transform duration-500" />
-              <span className="text-[9px] font-black uppercase tracking-widest">Reset Cloud</span>
-            </button>
+            {isAdmin ? (
+              <button
+                onClick={handleLogout}
+                className="group flex items-center gap-2 text-emerald-500 hover:text-emerald-400 transition-colors"
+                title="Logout from admin account"
+              >
+                <LogOut size={12} />
+                <span className="text-[9px] font-black uppercase tracking-widest">Logout Admin</span>
+              </button>
+            ) : (
+              <button
+                onClick={() => setShowLoginDialog(true)}
+                className="group flex items-center gap-2 text-indigo-500 hover:text-indigo-400 transition-colors"
+                title="Login as admin"
+              >
+                <LogIn size={12} />
+                <span className="text-[9px] font-black uppercase tracking-widest">Admin Login</span>
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -977,6 +1033,72 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
                 </button>
                 <button
                   onClick={() => setShowCopyDialog(false)}
+                  className="px-4 py-3 rounded-lg bg-white/5 border border-white/5 text-slate-400 text-[11px] font-black uppercase tracking-widest hover:text-white hover:border-white/10 transition-all"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showLoginDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-[#0c0c0e] border border-white/10 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
+            <div className="p-6 border-b border-white/5 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Lock className="text-indigo-400" size={20} />
+                <div>
+                  <h3 className="text-lg font-black text-white uppercase">Admin Login</h3>
+                  <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Required for main setup editing</p>
+                </div>
+              </div>
+              <button onClick={() => setShowLoginDialog(false)} className="p-2 text-slate-500 hover:text-white transition-colors">
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Username</label>
+                <input
+                  type="text"
+                  value={loginEmail}
+                  onChange={(e) => setLoginEmail(e.target.value)}
+                  className="w-full bg-black/60 border border-white/10 rounded-lg px-4 py-3 text-sm text-white focus:outline-none focus:border-indigo-500/40"
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleLogin();
+                    if (e.key === 'Escape') setShowLoginDialog(false);
+                  }}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Password</label>
+                <input
+                  type="password"
+                  value={loginPassword}
+                  onChange={(e) => setLoginPassword(e.target.value)}
+                  className="w-full bg-black/60 border border-white/10 rounded-lg px-4 py-3 text-sm text-white focus:outline-none focus:border-indigo-500/40"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleLogin();
+                    if (e.key === 'Escape') setShowLoginDialog(false);
+                  }}
+                />
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  onClick={handleLogin}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-indigo-600 text-white text-[11px] font-black uppercase tracking-widest hover:bg-indigo-500 transition-all"
+                >
+                  <LogIn size={14} />
+                  Login
+                </button>
+                <button
+                  onClick={() => setShowLoginDialog(false)}
                   className="px-4 py-3 rounded-lg bg-white/5 border border-white/5 text-slate-400 text-[11px] font-black uppercase tracking-widest hover:text-white hover:border-white/10 transition-all"
                 >
                   Cancel

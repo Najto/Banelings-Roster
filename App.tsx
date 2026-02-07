@@ -17,6 +17,7 @@ import { fetchBlizzardToken, getCharacterSummary, getCharacterStats, getCharacte
 import { fetchWarcraftLogsData } from './services/warcraftlogsService';
 import { persistenceService } from './services/persistenceService';
 import { configService, IlvlThresholds } from './services/configService';
+import { supabase } from './services/supabaseClient';
 import { LayoutGrid, Users, Trophy, RefreshCw, Settings as SettingsIcon, AlertTriangle, Zap, Split, ClipboardList, Database, List, User, Loader2, Layout, AlertCircle, X } from 'lucide-react';
 
 const SLOT_MAP: Record<string, string> = {
@@ -84,9 +85,25 @@ const App: React.FC = () => {
   const [migrationBanner, setMigrationBanner] = useState<{ show: boolean; count: number }>({ show: false, count: 0 });
   const [migrationDismissed, setMigrationDismissed] = useState(false);
 
+  useEffect(() => {
+    const createAdminUser = async () => {
+      try {
+        const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-admin`;
+        const headers = {
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          'Content-Type': 'application/json',
+        };
+        await fetch(apiUrl, { method: 'POST', headers });
+      } catch (error) {
+        console.error('Failed to create admin user:', error);
+      }
+    };
+    createAdminUser();
+  }, []);
+
   /**
    * Merges the raw roster data (from Google Sheet) with enriched data stored in Supabase.
-   * This ensures that on initial load, we show cached rich data (ilvl, score, etc.) 
+   * This ensures that on initial load, we show cached rich data (ilvl, score, etc.)
    * without hitting external APIs immediately.
    */
   const mergeWithDatabase = useCallback(async (baseRoster: Player[]) => {

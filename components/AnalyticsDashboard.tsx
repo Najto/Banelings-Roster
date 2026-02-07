@@ -1,7 +1,7 @@
 
 import React, { useMemo, useState } from 'react';
 import { Player, Character, WoWClass, CLASS_COLORS, PlayerRole } from '../types';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, LineChart, Line } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, LineChart, Line, LabelList } from 'recharts';
 import { Trophy, Zap, Shield, TrendingUp, Users } from 'lucide-react';
 
 interface AnalyticsDashboardProps {
@@ -26,25 +26,28 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ roster }
 
   // Daten für Klassenverteilung
   const classData = useMemo(() => {
-    const counts: Record<string, { class: string, Mains: number, Alts: number, color: string }> = {};
+    const counts: Record<string, { class: string, Mains: number, Alts: number, Total: number, color: string }> = {};
     
     // Initialisierung aller Klassen
     Object.values(WoWClass).forEach(cls => {
       if (cls === WoWClass.UNKNOWN) return;
-      counts[cls] = { class: cls, Mains: 0, Alts: 0, color: CLASS_COLORS[cls] };
+      counts[cls] = { class: cls, Mains: 0, Alts: 0, Total: 0, color: CLASS_COLORS[cls] };
     });
 
     allChars.forEach(char => {
       if (counts[char.className]) {
         if (char.isMain) counts[char.className].Mains++;
         else counts[char.className].Alts++;
+        counts[char.className].Total++;
       }
     });
 
-    return Object.values(counts).sort((a, b) => (b.Mains + b.Alts) - (a.Mains + a.Alts));
-  }, [allChars]);
+    return Object.values(counts)
+      .filter(item => (chartMode === 'mains' ? item.Mains : item.Total) > 0)
+      .sort((a, b) => (chartMode === 'mains' ? b.Mains - a.Mains : b.Total - a.Total));
+  }, [allChars, chartMode]);
 
-  // Leaderboards basierend auf den gefilterten Charakteren (Slicing entfernt für vollständige Liste)
+  // Leaderboards basierend auf den gefilterten Charakteren
   const topScore = useMemo(() => [...leaderboardChars].sort((a, b) => (b.mPlusRating || 0) - (a.mPlusRating || 0)), [leaderboardChars]);
   const topIlvl = useMemo(() => [...leaderboardChars].sort((a, b) => b.itemLevel - a.itemLevel), [leaderboardChars]);
   
@@ -88,8 +91,11 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ roster }
       {/* Top Stats Overview */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Class Distribution Chart */}
-        <div className="bg-[#0c0c0e] border border-white/5 rounded-2xl p-6 shadow-xl">
-          <div className="flex items-center justify-between mb-8">
+        <div className="bg-[#0c0c0e] border border-white/5 rounded-2xl p-6 shadow-xl relative overflow-hidden">
+          {/* Subtle background pattern for grid feel */}
+          <div className="absolute inset-0 opacity-[0.02] pointer-events-none" style={{ backgroundImage: 'radial-gradient(#4f46e5 1px, transparent 1px)', backgroundSize: '20px 20px' }} />
+          
+          <div className="flex items-center justify-between mb-8 relative z-10">
             <div className="flex items-center gap-3">
               <Users className="text-indigo-400" size={20} />
               <h3 className="text-sm font-black uppercase tracking-widest text-white">Klassenverteilung</h3>
@@ -106,23 +112,47 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ roster }
             </div>
           </div>
           
-          <div className="h-[300px] w-full">
+          <div className="h-[400px] w-full relative z-10">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={classData} layout="vertical" margin={{ left: 20 }}>
+              <BarChart data={classData} layout="vertical" margin={{ left: 20, right: 40 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" horizontal={false} />
                 <XAxis type="number" hide />
                 <YAxis 
                   dataKey="class" 
                   type="category" 
-                  tick={{ fill: '#64748b', fontSize: 10, fontWeight: 700 }} 
+                  tick={{ fill: '#64748b', fontSize: 10, fontWeight: 900 }} 
                   width={100}
+                  axisLine={false}
+                  tickLine={false}
                 />
                 <Tooltip 
                   cursor={{ fill: '#ffffff05' }}
-                  contentStyle={{ backgroundColor: '#000', border: '1px solid #1e293b', borderRadius: '8px', fontSize: '11px' }}
+                  contentStyle={{ backgroundColor: '#000', border: '1px solid #1e293b', borderRadius: '8px', fontSize: '11px', fontWeight: 'bold' }}
                 />
-                <Bar dataKey="Mains" stackId="a" fill="#4f46e5" radius={[0, 0, 0, 0]} barSize={12} />
-                {chartMode === 'all' && <Bar dataKey="Alts" stackId="a" fill="#1e1b4b" radius={[0, 4, 4, 0]} barSize={12} />}
+                <Bar dataKey="Mains" stackId="a" fill="#4f46e5" radius={chartMode === 'mains' ? [0, 4, 4, 0] : [0, 0, 0, 0]} barSize={16}>
+                  {chartMode === 'mains' && (
+                    <LabelList 
+                      dataKey="Mains" 
+                      position="right" 
+                      fill="#6366f1" 
+                      fontSize={10} 
+                      fontWeight={900} 
+                      offset={10}
+                    />
+                  )}
+                </Bar>
+                {chartMode === 'all' && (
+                  <Bar dataKey="Alts" stackId="a" fill="#312e81" radius={[0, 4, 4, 0]} barSize={16}>
+                    <LabelList 
+                      dataKey="Total" 
+                      position="right" 
+                      fill="#818cf8" 
+                      fontSize={10} 
+                      fontWeight={900} 
+                      offset={10}
+                    />
+                  </Bar>
+                )}
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -134,7 +164,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ roster }
             <TrendingUp className="text-emerald-400" size={20} />
             <h3 className="text-sm font-black uppercase tracking-widest text-white">Gilden Aktivität (Trend)</h3>
           </div>
-          <div className="h-[300px] w-full">
+          <div className="h-[400px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={activityTrend}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" vertical={false} />

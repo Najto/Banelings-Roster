@@ -90,10 +90,11 @@ const ARMOR_DESCRIPTIONS: Record<string, string> = {
   "plate": "Warriors, Paladins, Death Knights"
 };
 
-const Tooltip = ({ content, children }: { content: string, children: React.ReactNode }) => {
+// Fix: Destructured key and added optional children to satisfy TypeScript when used in maps
+const Tooltip = ({ content, children, key }: { content: string, children?: React.ReactNode, key?: React.Key }) => {
   if (!content) return <>{children}</>;
   return (
-    <div className="group relative inline-block w-full">
+    <div key={key} className="group relative inline-block w-full">
       {children}
       <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-50">
         <div className="bg-[#050507] border border-white/10 text-slate-300 text-[10px] px-3 py-2 rounded-lg shadow-2xl w-48 text-center font-medium leading-relaxed">

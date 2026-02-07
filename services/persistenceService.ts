@@ -323,5 +323,137 @@ export const persistenceService = {
       console.error('Failed to delete character:', error);
       return false;
     }
+  },
+
+  // MIGRATION FUNCTIONS
+  async checkMigrationNeeded(): Promise<{ needed: boolean; uniquePlayers: number; totalCharacters: number; existingMembers: number }> {
+    try {
+      // Check if roster_members table is empty or has fewer members than unique player_names
+      const { data: membersData, error: membersError } = await supabase
+        .from('roster_members')
+        .select('member_name');
+
+      if (membersError) {
+        console.error('Error checking roster members:', membersError);
+        return { needed: false, uniquePlayers: 0, totalCharacters: 0, existingMembers: 0 };
+      }
+
+      // Get all unique player_names from character_data
+      const { data: charactersData, error: charactersError } = await supabase
+        .from('character_data')
+        .select('player_name, role');
+
+      if (charactersError) {
+        console.error('Error checking character data:', charactersError);
+        return { needed: false, uniquePlayers: 0, totalCharacters: 0, existingMembers: 0 };
+      }
+
+      const existingMembers = (membersData || []).map(m => m.member_name);
+      const totalCharacters = charactersData?.length || 0;
+
+      // Get unique player names that don't have roster members yet
+      const uniquePlayerNames = new Set(
+        (charactersData || [])
+          .map((c: any) => c.player_name)
+          .filter((name: string) => name && !existingMembers.includes(name))
+      );
+
+      return {
+        needed: uniquePlayerNames.size > 0,
+        uniquePlayers: uniquePlayerNames.size,
+        totalCharacters,
+        existingMembers: existingMembers.length
+      };
+    } catch (error) {
+      console.error('Failed to check migration status:', error);
+      return { needed: false, uniquePlayers: 0, totalCharacters: 0, existingMembers: 0 };
+    }
+  },
+
+  async migrateCharactersToRosterMembers(): Promise<{ success: boolean; created: number; skipped: number; errors: string[] }> {
+    try {
+      const result = { success: true, created: 0, skipped: 0, errors: [] as string[] };
+
+      // Get all existing roster members
+      const { data: existingMembers, error: existingError } = await supabase
+        .from('roster_members')
+        .select('member_name');
+
+      if (existingError) {
+        result.errors.push(`Failed to fetch existing members: ${existingError.message}`);
+        result.success = false;
+        return result;
+      }
+
+      const existingMemberNames = new Set((existingMembers || []).map((m: any) => m.member_name));
+
+      // Get all characters grouped by player_name
+      const { data: characters, error: charError } = await supabase
+        .from('character_data')
+        .select('player_name, role')
+        .order('player_name');
+
+      if (charError) {
+        result.errors.push(`Failed to fetch character data: ${charError.message}`);
+        result.success = false;
+        return result;
+      }
+
+      if (!characters || characters.length === 0) {
+        result.errors.push('No character data found to migrate');
+        return result;
+      }
+
+      // Group by player_name and get their role
+      const playerMap = new Map<string, PlayerRole>();
+      characters.forEach((char: any) => {
+        if (char.player_name && !playerMap.has(char.player_name)) {
+          playerMap.set(char.player_name, char.role);
+        }
+      });
+
+      // Get current max display_order
+      const { data: maxOrderData } = await supabase
+        .from('roster_members')
+        .select('display_order')
+        .order('display_order', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      let displayOrder = (maxOrderData?.display_order || 0) + 1;
+
+      // Create roster members for each unique player
+      for (const [playerName, role] of playerMap.entries()) {
+        if (existingMemberNames.has(playerName)) {
+          result.skipped++;
+          continue;
+        }
+
+        const { error: insertError } = await supabase
+          .from('roster_members')
+          .insert({
+            member_name: playerName,
+            role: role,
+            display_order: displayOrder++,
+          });
+
+        if (insertError) {
+          result.errors.push(`Failed to create member ${playerName}: ${insertError.message}`);
+          result.success = false;
+        } else {
+          result.created++;
+        }
+      }
+
+      return result;
+    } catch (error) {
+      console.error('Migration failed:', error);
+      return {
+        success: false,
+        created: 0,
+        skipped: 0,
+        errors: [`Unexpected error: ${error instanceof Error ? error.message : 'Unknown error'}`]
+      };
+    }
   }
 };

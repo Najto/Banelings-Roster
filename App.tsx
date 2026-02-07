@@ -16,7 +16,7 @@ import { fetchRaiderIOData, getCurrentResetTime, computeWeeklyRaidKills } from '
 import { fetchBlizzardToken, getCharacterSummary, getCharacterStats, getCharacterAchievements, getCharacterCollections, getCharacterProfessions, getCharacterEquipment, getCharacterPvPSummary, getCharacterPvPBracket, getCharacterReputations, getCharacterQuests } from './services/blizzardService';
 import { fetchWarcraftLogsData } from './services/warcraftlogsService';
 import { persistenceService } from './services/persistenceService';
-import { LayoutGrid, Users, Trophy, RefreshCw, Settings as SettingsIcon, AlertTriangle, Zap, Split, ClipboardList, Database, List, User, Loader2, Layout } from 'lucide-react';
+import { LayoutGrid, Users, Trophy, RefreshCw, Settings as SettingsIcon, AlertTriangle, Zap, Split, ClipboardList, Database, List, User, Loader2, Layout, AlertCircle, X } from 'lucide-react';
 
 const SLOT_MAP: Record<string, string> = {
   'HEAD': 'head',
@@ -74,6 +74,8 @@ const App: React.FC = () => {
   const [lastUpdate, setLastUpdate] = useState<string>("Nie");
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [addModalContext, setAddModalContext] = useState<{ memberName: string; isMain: boolean } | null>(null);
+  const [migrationBanner, setMigrationBanner] = useState<{ show: boolean; count: number }>({ show: false, count: 0 });
+  const [migrationDismissed, setMigrationDismissed] = useState(false);
 
   /**
    * Merges the raw roster data (from Google Sheet) with enriched data stored in Supabase.
@@ -404,6 +406,11 @@ const App: React.FC = () => {
         setRoster(dbRoster);
         const savedSplits = await persistenceService.loadSplits();
         if (savedSplits) setSplits(savedSplits);
+
+        const migrationCheck = await persistenceService.checkMigrationNeeded();
+        if (migrationCheck.needed && !localStorage.getItem('migration_dismissed')) {
+          setMigrationBanner({ show: true, count: migrationCheck.uniquePlayers });
+        }
       } catch (e) {
         console.error('Failed to load initial data:', e);
       }
@@ -730,6 +737,37 @@ const App: React.FC = () => {
       </nav>
 
       <main className="flex-1 p-4 md:p-8 overflow-y-auto bg-[#020203]">
+        {migrationBanner.show && !migrationDismissed && (
+          <div className="mb-6 bg-blue-500/10 border border-blue-500/30 rounded-xl p-4 flex items-start gap-3 animate-in slide-in-from-top-4 duration-500">
+            <AlertCircle className="text-blue-400 flex-shrink-0 mt-0.5" size={20} />
+            <div className="flex-1">
+              <div className="text-blue-300 font-bold text-sm mb-1">Roster Migration Available</div>
+              <div className="text-slate-400 text-xs mb-3">
+                Found {migrationBanner.count} player{migrationBanner.count !== 1 ? 's' : ''} in character_data that can be migrated to roster_members.
+                This will allow you to manage your roster structure more effectively.
+              </div>
+              <button
+                onClick={() => {
+                  setActiveTab('settings');
+                  setMigrationDismissed(true);
+                }}
+                className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg font-bold text-xs uppercase tracking-wider transition-all"
+              >
+                Go to Settings to Migrate
+              </button>
+            </div>
+            <button
+              onClick={() => {
+                setMigrationDismissed(true);
+                localStorage.setItem('migration_dismissed', 'true');
+              }}
+              className="text-slate-500 hover:text-white transition-colors"
+            >
+              <X size={18} />
+            </button>
+          </div>
+        )}
+
         <header className="mb-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 mb-1">

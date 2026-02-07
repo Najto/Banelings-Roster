@@ -15,8 +15,11 @@ import { fetchRaiderIOData, getCurrentResetTime, computeWeeklyRaidKills } from '
 import { fetchBlizzardToken, getCharacterSummary, getCharacterStats, getCharacterAchievements, getCharacterCollections, getCharacterProfessions, getCharacterEquipment, getCharacterPvPSummary, getCharacterPvPBracket, getCharacterReputations, getCharacterQuests } from './services/blizzardService';
 import { fetchWarcraftLogsData } from './services/warcraftlogsService';
 import { persistenceService } from './services/persistenceService';
-import { LayoutGrid, Users, Trophy, RefreshCw, Settings as SettingsIcon, AlertTriangle, Zap, Split, ClipboardList, Database, List, User, Loader2, Layout, LogIn, LogOut, Mail, Lock, UserPlus } from 'lucide-react';
+import { LayoutGrid, Users, Trophy, RefreshCw, Settings as SettingsIcon, AlertTriangle, Zap, Split, ClipboardList, Database, List, User, Loader2, Layout, LogIn, LogOut, Shield } from 'lucide-react';
 import { authService, AuthState } from './services/authService';
+import { battlenetOAuthService } from './services/battlenetOAuthService';
+import { claimService } from './services/claimService';
+import { CharacterClaim } from './components/CharacterClaim';
 import type { User as SupaUser } from '@supabase/supabase-js';
 
 const SLOT_MAP: Record<string, string> = {
@@ -67,7 +70,7 @@ const App: React.FC = () => {
   const [roster, setRoster] = useState<Player[]>(INITIAL_ROSTER);
   const [splits, setSplits] = useState<SplitGroup[]>([]);
   const [minIlvl, setMinIlvl] = useState<number>(615);
-  const [activeTab, setActiveTab] = useState<'roster' | 'audit' | 'analytics' | 'splits' | 'settings'>('roster');
+  const [activeTab, setActiveTab] = useState<'roster' | 'audit' | 'analytics' | 'splits' | 'settings' | 'claims'>('roster');
   const [rosterViewMode, setRosterViewMode] = useState<'table' | 'overview' | 'detail'>('overview');
   const [isUpdating, setIsUpdating] = useState(false);
   const [updateProgress, setUpdateProgress] = useState({ current: 0, total: 0 });
@@ -75,11 +78,8 @@ const App: React.FC = () => {
   const [lastUpdate, setLastUpdate] = useState<string>("Nie");
   const [authUser, setAuthUser] = useState<SupaUser | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
-  const [loginEmail, setLoginEmail] = useState('');
-  const [loginPassword, setLoginPassword] = useState('');
-  const [loginError, setLoginError] = useState<string | null>(null);
-  const [loginMode, setLoginMode] = useState<'signin' | 'signup'>('signin');
-  const [loginSubmitting, setLoginSubmitting] = useState(false);
+  const [battlenetId, setBattlenetId] = useState<string>('');
+  const [userClaims, setUserClaims] = useState<any[]>([]);
 
   /**
    * Merges the raw roster data (from Google Sheet) with enriched data stored in Supabase.
@@ -427,33 +427,57 @@ const App: React.FC = () => {
   }, [mergeWithDatabase]);
 
   useEffect(() => {
-    const { session } = authService.getSession().then(({ session }) => {
+    authService.getSession().then(async ({ session }) => {
       setAuthUser(session?.user ?? null);
+      if (session?.user) {
+        const bnetId = session.user.user_metadata?.iss || session.user.id;
+        setBattlenetId(bnetId);
+
+        const providerToken = (session as any).provider_token;
+        if (providerToken) {
+          const chars = await battlenetOAuthService.fetchCharacters(providerToken);
+          await battlenetOAuthService.cacheCharacters(session.user.id, chars);
+          await claimService.verifyUserClaims(session.user.id);
+        }
+
+        const claims = await claimService.getUserClaims(session.user.id);
+        setUserClaims(claims);
+      }
       setAuthLoading(false);
     });
-    const subscription = authService.onAuthStateChange((user) => {
+
+    const subscription = authService.onAuthStateChange(async (user, session) => {
       setAuthUser(user);
+      if (user) {
+        const bnetId = user.user_metadata?.iss || user.id;
+        setBattlenetId(bnetId);
+
+        const providerToken = (session as any)?.provider_token;
+        if (providerToken) {
+          const chars = await battlenetOAuthService.fetchCharacters(providerToken);
+          await battlenetOAuthService.cacheCharacters(user.id, chars);
+          await claimService.verifyUserClaims(user.id);
+        }
+
+        const claims = await claimService.getUserClaims(user.id);
+        setUserClaims(claims);
+      } else {
+        setBattlenetId('');
+        setUserClaims([]);
+      }
       setAuthLoading(false);
     });
     return () => subscription.unsubscribe();
   }, []);
 
-  const handleLogin = async () => {
-    setLoginError(null);
-    setLoginSubmitting(true);
-    const action = loginMode === 'signup' ? authService.signUp : authService.signIn;
-    const { error } = await action(loginEmail, loginPassword);
-    if (error) {
-      setLoginError(error.message);
-    } else {
-      setLoginEmail('');
-      setLoginPassword('');
-    }
-    setLoginSubmitting(false);
+  const handleBattleNetLogin = async () => {
+    await authService.signInWithBattleNet();
   };
 
   const handleLogout = async () => {
     await authService.signOut();
+    setUserClaims([]);
+    setBattlenetId('');
   };
 
   return (
@@ -470,6 +494,7 @@ const App: React.FC = () => {
             { id: 'audit', label: 'Audit-Beta', icon: ClipboardList },
             { id: 'splits', label: 'Split Setup', icon: Split },
             { id: 'analytics', label: 'Performance', icon: LayoutGrid },
+            { id: 'claims', label: 'My Claims', icon: Shield },
             { id: 'settings', label: 'Config', icon: SettingsIcon },
           ].map((item) => (
             <button 
@@ -492,13 +517,26 @@ const App: React.FC = () => {
             <div className="bg-black/40 p-3 rounded-xl border border-white/5 space-y-2">
               <div className="flex items-center gap-2">
                 <div className="w-6 h-6 rounded-lg bg-emerald-500/10 flex items-center justify-center">
-                  <User size={12} className="text-emerald-400" />
+                  <Shield size={12} className="text-emerald-400" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-[10px] font-black text-white uppercase tracking-widest truncate">{authUser.email}</p>
-                  <p className="text-[8px] text-emerald-500 font-bold uppercase tracking-widest">Logged In</p>
+                  <p className="text-[10px] font-black text-white uppercase tracking-widest truncate">
+                    {authUser.user_metadata?.battletag || authUser.email || 'Battle.net User'}
+                  </p>
+                  <p className="text-[8px] text-emerald-500 font-bold uppercase tracking-widest">
+                    {userClaims.length > 0 ? `${userClaims.length} Claimed` : 'No Claims'}
+                  </p>
                 </div>
               </div>
+              {userClaims.length > 0 && (
+                <button
+                  onClick={() => setActiveTab('claims')}
+                  className="w-full flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg bg-indigo-600/20 border border-indigo-500/30 text-indigo-300 text-[9px] font-black uppercase tracking-widest hover:bg-indigo-600/30 transition-all"
+                >
+                  <Shield size={10} />
+                  View Claims
+                </button>
+              )}
               <button
                 onClick={handleLogout}
                 className="w-full flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 border border-white/5 text-slate-500 text-[9px] font-black uppercase tracking-widest hover:text-red-400 hover:border-red-500/20 transition-all"
@@ -509,50 +547,20 @@ const App: React.FC = () => {
             </div>
           ) : (
             <div className="bg-black/40 p-3 rounded-xl border border-white/5 space-y-2">
-              <div className="flex items-center gap-2 mb-1">
-                <LogIn size={12} className="text-slate-500" />
-                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">
-                  {loginMode === 'signup' ? 'Create Account' : 'Sign In'}
-                </p>
+              <div className="flex items-center gap-2 mb-2">
+                <Shield size={14} className="text-slate-500" />
+                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Authentication</p>
               </div>
-              <div className="relative">
-                <Mail size={10} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-600" />
-                <input
-                  type="email"
-                  value={loginEmail}
-                  onChange={(e) => setLoginEmail(e.target.value)}
-                  placeholder="Email"
-                  className="w-full bg-black/60 border border-white/10 rounded-lg pl-7 pr-3 py-1.5 text-[10px] text-white placeholder-slate-700 focus:outline-none focus:border-indigo-500/40"
-                />
-              </div>
-              <div className="relative">
-                <Lock size={10} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-600" />
-                <input
-                  type="password"
-                  value={loginPassword}
-                  onChange={(e) => setLoginPassword(e.target.value)}
-                  placeholder="Password"
-                  className="w-full bg-black/60 border border-white/10 rounded-lg pl-7 pr-3 py-1.5 text-[10px] text-white placeholder-slate-700 focus:outline-none focus:border-indigo-500/40"
-                  onKeyDown={(e) => { if (e.key === 'Enter' && loginEmail && loginPassword) handleLogin(); }}
-                />
-              </div>
-              {loginError && (
-                <p className="text-[9px] text-red-400 font-bold">{loginError}</p>
-              )}
               <button
-                onClick={handleLogin}
-                disabled={!loginEmail || !loginPassword || loginSubmitting}
-                className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-indigo-600 text-white text-[9px] font-black uppercase tracking-widest hover:bg-indigo-500 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                onClick={handleBattleNetLogin}
+                className="w-full flex items-center justify-center gap-2 px-3 py-3 rounded-lg bg-[#148eff] text-white text-[10px] font-black uppercase tracking-widest hover:bg-[#0d7ae0] transition-all shadow-lg"
               >
-                {loginSubmitting ? <Loader2 size={10} className="animate-spin" /> : loginMode === 'signup' ? <UserPlus size={10} /> : <LogIn size={10} />}
-                {loginMode === 'signup' ? 'Sign Up' : 'Sign In'}
+                <Shield size={12} />
+                Login with Battle.net
               </button>
-              <button
-                onClick={() => { setLoginMode(loginMode === 'signin' ? 'signup' : 'signin'); setLoginError(null); }}
-                className="w-full text-center text-[8px] font-bold text-slate-600 hover:text-slate-400 uppercase tracking-widest transition-colors"
-              >
-                {loginMode === 'signin' ? 'Need an account? Sign Up' : 'Have an account? Sign In'}
-              </button>
+              <p className="text-[8px] text-slate-600 text-center leading-relaxed">
+                Sign in to claim your characters and access personalized features
+              </p>
             </div>
           )}
 
@@ -577,6 +585,7 @@ const App: React.FC = () => {
               {activeTab === 'audit' && 'Audit-Beta'}
               {activeTab === 'splits' && 'Split Control'}
               {activeTab === 'analytics' && 'Performance'}
+              {activeTab === 'claims' && 'Character Claims'}
               {activeTab === 'settings' && 'System Config'}
             </h2>
           </div>
@@ -627,6 +636,22 @@ const App: React.FC = () => {
           {activeTab === 'audit' && <RosterAudit roster={roster} />}
           {activeTab === 'splits' && <SplitSetup splits={splits} roster={roster} minIlvl={minIlvl} />}
           {activeTab === 'analytics' && <AnalyticsDashboard roster={roster} />}
+          {activeTab === 'claims' && authUser && (
+            <CharacterClaim roster={roster} userId={authUser.id} battlenetId={battlenetId} />
+          )}
+          {activeTab === 'claims' && !authUser && (
+            <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-8 text-center">
+              <Shield className="mx-auto mb-4 text-amber-500" size={48} />
+              <h3 className="text-xl font-black text-white uppercase tracking-wider mb-2">Login Required</h3>
+              <p className="text-slate-400 mb-4">Please log in with your Battle.net account to claim characters.</p>
+              <button
+                onClick={handleBattleNetLogin}
+                className="px-6 py-3 bg-[#148eff] text-white rounded-lg text-sm font-black uppercase tracking-wider hover:bg-[#0d7ae0] transition-all"
+              >
+                Login with Battle.net
+              </button>
+            </div>
+          )}
           {activeTab === 'settings' && <Settings />}
         </div>
       </main>

@@ -19,6 +19,17 @@ export const authService = {
     return { data, error };
   },
 
+  async signInWithBattleNet() {
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'battlenet',
+      options: {
+        scopes: 'wow.profile',
+        redirectTo: window.location.origin
+      }
+    });
+    return { data, error };
+  },
+
   async signOut() {
     const { error } = await supabase.auth.signOut();
     return { error };
@@ -27,6 +38,11 @@ export const authService = {
   async getSession() {
     const { data, error } = await supabase.auth.getSession();
     return { session: data.session, error };
+  },
+
+  getBattleNetAccessToken(): string | null {
+    const session = supabase.auth.getSession();
+    return session ? (session as any).provider_token : null;
   },
 
   onAuthStateChange(callback: (user: User | null, session: Session | null) => void) {

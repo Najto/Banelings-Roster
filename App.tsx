@@ -25,7 +25,8 @@ const App: React.FC = () => {
   const [lastUpdate, setLastUpdate] = useState<string>("Nie");
   const [rosterViewMode, setRosterViewMode] = useState<'table' | 'detail'>('table');
   const [enrichmentProgress, setEnrichmentProgress] = useState<EnrichmentProgress | null>(null);
-  const [isEnriched, setIsEnriched] = useState(false);
+  const [isLoadingFromDB, setIsLoadingFromDB] = useState(true);
+  const [nextRefreshTime, setNextRefreshTime] = useState<Date | null>(null);
 
   const enrichWithFullAPIData = useCallback(async (baseRoster: Player[]) => {
     const mappings: MemberMapping[] = JSON.parse(localStorage.getItem('guild_mappings') || "[]");
@@ -56,15 +57,40 @@ const App: React.FC = () => {
     });
 
     setRoster(finalRoster);
-    setIsEnriched(true);
 
     const metadata = await getEnrichmentMetadata();
     if (metadata?.last_enriched_at) {
+      const nextRefresh = new Date(new Date(metadata.last_enriched_at).getTime() + 60 * 60 * 1000);
+      setNextRefreshTime(nextRefresh);
       setLastUpdate(new Date(metadata.last_enriched_at).toLocaleTimeString());
     }
   }, []);
 
-  const syncWithSheet = useCallback(async (withEnrichment: boolean = false) => {
+  const loadFromDatabase = useCallback(async (baseRoster: Player[]) => {
+    const mappings: MemberMapping[] = JSON.parse(localStorage.getItem('guild_mappings') || "[]");
+
+    const rosterFromDB = await loadRosterFromDatabase(baseRoster);
+
+    const finalRoster = rosterFromDB.map(player => {
+      const mapping = mappings.find(m => m.memberName.toLowerCase() === player.name.toLowerCase());
+      const finalRole = (mapping && mapping.role && mapping.role !== PlayerRole.UNKNOWN)
+        ? mapping.role
+        : player.role;
+
+      return { ...player, role: finalRole };
+    });
+
+    setRoster(finalRoster);
+
+    const metadata = await getEnrichmentMetadata();
+    if (metadata?.last_enriched_at) {
+      const nextRefresh = new Date(new Date(metadata.last_enriched_at).getTime() + 60 * 60 * 1000);
+      setNextRefreshTime(nextRefresh);
+      setLastUpdate(new Date(metadata.last_enriched_at).toLocaleTimeString());
+    }
+  }, []);
+
+  const syncWithSheet = useCallback(async (forceRefresh: boolean = false) => {
     setIsUpdating(true);
     setError(null);
     try {
@@ -77,22 +103,12 @@ const App: React.FC = () => {
       setMinIlvl(rosterResult.minIlvl);
 
       if (rosterResult.roster.length > 0) {
-        const mappings: MemberMapping[] = JSON.parse(localStorage.getItem('guild_mappings') || "[]");
+        const dataIsStale = await isDataStale(60);
 
-        const finalRoster = rosterResult.roster.map(player => {
-          const mapping = mappings.find(m => m.memberName.toLowerCase() === player.name.toLowerCase());
-          const finalRole = (mapping && mapping.role && mapping.role !== PlayerRole.UNKNOWN)
-            ? mapping.role
-            : player.role;
-
-          return { ...player, role: finalRole };
-        });
-
-        setRoster(finalRoster);
-        setLastUpdate(new Date().toLocaleTimeString());
-
-        if (withEnrichment) {
-          await enrichWithFullAPIData(finalRoster);
+        if (forceRefresh || dataIsStale) {
+          await enrichWithFullAPIData(rosterResult.roster);
+        } else {
+          await loadFromDatabase(rosterResult.roster);
         }
       }
     } catch (e) {
@@ -101,11 +117,46 @@ const App: React.FC = () => {
     } finally {
       setIsUpdating(false);
     }
-  }, [enrichWithFullAPIData]);
+  }, [enrichWithFullAPIData, loadFromDatabase]);
 
   useEffect(() => {
-    syncWithSheet(false);
-  }, [syncWithSheet]);
+    const initializeApp = async () => {
+      setIsLoadingFromDB(true);
+      try {
+        const rosterResult = await fetchRosterFromSheet();
+        setMinIlvl(rosterResult.minIlvl);
+
+        if (rosterResult.roster.length > 0) {
+          await loadFromDatabase(rosterResult.roster);
+        }
+
+        setIsLoadingFromDB(false);
+
+        const dataIsStale = await isDataStale(60);
+        if (dataIsStale) {
+          await syncWithSheet(true);
+        }
+      } catch (e) {
+        console.error('Failed to initialize app:', e);
+        setIsLoadingFromDB(false);
+        await syncWithSheet(true);
+      }
+    };
+
+    initializeApp();
+  }, []);
+
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      const dataIsStale = await isDataStale(60);
+      if (dataIsStale && !isUpdating) {
+        console.log('Auto-refreshing stale data...');
+        await syncWithSheet(true);
+      }
+    }, 5 * 60 * 1000);
+
+    return () => clearInterval(interval);
+  }, [isUpdating, syncWithSheet]);
 
   return (
     <div className="min-h-screen wow-gradient flex flex-col md:flex-row overflow-hidden h-screen text-slate-200">
@@ -179,30 +230,27 @@ const App: React.FC = () => {
               {activeTab === 'settings' && 'Guild Settings'}
             </h2>
           </div>
-          <div className="flex gap-2">
-            <button
-              onClick={() => syncWithSheet(false)}
-              disabled={isUpdating}
-              className="bg-white/5 hover:bg-white/10 border border-white/10 text-white px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest flex items-center gap-2 transition-all active:scale-95 disabled:opacity-50"
-            >
-              <RefreshCw className={`${isUpdating ? 'animate-spin' : ''}`} size={16} />
-              {isUpdating ? 'Refreshing...' : 'Refresh'}
-            </button>
-            <button
-              onClick={() => syncWithSheet(true)}
-              disabled={isUpdating}
-              className="bg-emerald-600 hover:bg-emerald-700 border border-emerald-500/20 text-white px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest flex items-center gap-2 transition-all active:scale-95 disabled:opacity-50"
-            >
-              <Zap className={`${isUpdating ? 'animate-spin' : ''}`} size={16} />
-              {isUpdating ? 'Enriching...' : 'Enrich All'}
-            </button>
-          </div>
+          <button
+            onClick={() => syncWithSheet(true)}
+            disabled={isUpdating}
+            className="bg-white/5 hover:bg-white/10 border border-white/10 text-white px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest flex items-center gap-2 transition-all active:scale-95 disabled:opacity-50"
+          >
+            <RefreshCw className={`${isUpdating ? 'animate-spin' : ''}`} size={16} />
+            {isUpdating ? 'Refreshing...' : 'Refresh Data'}
+          </button>
         </header>
 
         {error && (
           <div className="mb-6 bg-red-500/10 border border-red-500/20 text-red-500 px-4 py-3 rounded-xl text-xs font-bold flex items-center gap-3">
              <AlertTriangle size={16} />
              {error}
+          </div>
+        )}
+
+        {isLoadingFromDB && (
+          <div className="mb-6 bg-blue-500/10 border border-blue-500/20 text-blue-400 px-4 py-3 rounded-xl text-xs font-bold flex items-center gap-3">
+            <Clock size={16} className="animate-pulse" />
+            Loading cached data from database...
           </div>
         )}
 
@@ -260,13 +308,7 @@ const App: React.FC = () => {
 
           {activeTab === 'audit' && (
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
-              <Audit
-                roster={roster}
-                minIlvl={minIlvl}
-                isEnriched={isEnriched}
-                onEnrich={() => syncWithSheet(true)}
-                isEnriching={isUpdating && enrichmentProgress !== null}
-              />
+              <Audit roster={roster} minIlvl={minIlvl} />
             </div>
           )}
 

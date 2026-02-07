@@ -81,6 +81,10 @@ export const fetchRaiderIOData = async (name: string, realm: string): Promise<Pa
     const gearItems: GearItem[] = GEAR_SLOTS.map(slot => {
       const item = data.gear?.items?.[slot];
       if (!item) return null;
+
+      const isTierSlot = TIER_SLOTS.includes(slot);
+      const hasTierInfo = item.tier === true || item.tier === 'true' || (typeof item.tier === 'string' && item.tier.length > 0);
+
       return {
         slot: slot,
         name: item.name || 'Unknown',
@@ -89,7 +93,7 @@ export const fetchRaiderIOData = async (name: string, realm: string): Promise<Pa
         enchant: item.enchant || undefined,
         gems: item.gems?.map((g: any) => g.name) || [],
         bonusIds: item.bonuses || [],
-        tier: TIER_SLOTS.includes(slot) && item.tier ? true : false
+        tier: isTierSlot && hasTierInfo
       };
     }).filter(Boolean) as GearItem[];
 
@@ -139,6 +143,41 @@ export const fetchRaiderIOData = async (name: string, realm: string): Promise<Pa
     };
   } catch (error) {
     console.error(`Raider.io fetch failed for ${name}-${realm}:`, error);
+    return null;
+  }
+};
+
+export const fetchEnrichedCharacterData = async (
+  name: string,
+  realm: string,
+  blizzardToken: string,
+  useCache: boolean = true
+): Promise<Partial<Character> | null> => {
+  try {
+    const { getCachedData, setCachedData, getCacheKey } = await import('./cacheService');
+    const { enrichCharacterData } = await import('./enrichmentService');
+
+    const cacheKey = getCacheKey('enriched', 'eu', realm, name);
+
+    if (useCache) {
+      const cached = await getCachedData<Partial<Character>>(cacheKey);
+      if (cached) {
+        return cached;
+      }
+    }
+
+    const rioData = await fetchRaiderIOData(name, realm);
+    if (!rioData) return null;
+
+    const enrichedData = await enrichCharacterData(rioData, blizzardToken, realm, name);
+
+    if (useCache) {
+      await setCachedData(cacheKey, enrichedData);
+    }
+
+    return enrichedData;
+  } catch (error) {
+    console.error(`Enriched character fetch failed for ${name}-${realm}:`, error);
     return null;
   }
 };

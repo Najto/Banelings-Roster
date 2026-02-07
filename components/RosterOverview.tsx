@@ -72,6 +72,7 @@ const CharacterCell = ({
       playerName: playerName,
     };
     e.dataTransfer.setData('application/json', JSON.stringify(dragData));
+    e.dataTransfer.setData('text/x-player-name', playerName); // Store player name separately for validation
     e.dataTransfer.effectAllowed = 'move';
   };
 
@@ -82,15 +83,10 @@ const CharacterCell = ({
   const handleDragOver = (e: React.DragEvent) => {
     if (!char || !playerName || !onSwap) return;
 
-    try {
-      const dragData = JSON.parse(e.dataTransfer.getData('application/json') || '{}');
-      // Only allow drop if from same member
-      if (dragData.playerName === playerName && dragData.charName !== char.name) {
-        e.preventDefault();
-        setIsDragOver(true);
-      }
-    } catch {
-      // Invalid drag data
+    // Check if we have drag data (dataTransfer.types contains our custom type)
+    if (e.dataTransfer.types.includes('application/json')) {
+      e.preventDefault(); // Allow drop
+      setIsDragOver(true);
     }
   };
 

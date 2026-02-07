@@ -1,10 +1,6 @@
 import { supabase } from './supabaseClient';
 import { Character, Player } from '../types';
 
-const normalizeRealm = (realm: string): string => {
-  return realm.toLowerCase().replace(/\s+/g, '-').replace(/'/g, '');
-};
-
 export interface CharacterDataRecord {
   id?: string;
   character_name: string;
@@ -41,10 +37,9 @@ export const saveCharacterData = async (
   errorMessage?: string
 ): Promise<void> => {
   try {
-    const normalizedRealm = normalizeRealm(character.server || '');
     const record: CharacterDataRecord = {
       character_name: character.name,
-      realm: normalizedRealm,
+      realm: character.server || '',
       player_name: playerName,
       role: character.role,
       class_name: character.className,
@@ -77,12 +72,11 @@ export const getCharacterData = async (
   realm: string
 ): Promise<Character | null> => {
   try {
-    const normalizedRealm = normalizeRealm(realm);
     const { data, error } = await supabase
       .from('character_data')
       .select('enriched_data')
       .eq('character_name', name)
-      .eq('realm', normalizedRealm)
+      .eq('realm', realm)
       .maybeSingle();
 
     if (error || !data) {
@@ -108,8 +102,7 @@ export const getAllCharacterData = async (): Promise<Map<string, Character>> => 
 
     const characterMap = new Map<string, Character>();
     data.forEach(record => {
-      const normalizedRealm = normalizeRealm(record.realm);
-      const key = `${record.character_name}-${normalizedRealm}`;
+      const key = `${record.character_name}-${record.realm}`;
       const character = record.enriched_data as Character;
 
       if (character) {
@@ -195,12 +188,11 @@ export const incrementErrorCount = async (
   errorMessage: string
 ): Promise<void> => {
   try {
-    const normalizedRealm = normalizeRealm(realm);
     const { data: existing } = await supabase
       .from('character_data')
       .select('error_count')
       .eq('character_name', name)
-      .eq('realm', normalizedRealm)
+      .eq('realm', realm)
       .maybeSingle();
 
     const newErrorCount = (existing?.error_count || 0) + 1;
@@ -214,7 +206,7 @@ export const incrementErrorCount = async (
         updated_at: new Date().toISOString()
       })
       .eq('character_name', name)
-      .eq('realm', normalizedRealm);
+      .eq('realm', realm);
 
     if (error) {
       console.error('Failed to increment error count:', error);

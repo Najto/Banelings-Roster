@@ -144,8 +144,7 @@ export const enrichRosterWithDatabase = async (
     const enrichedPlayer = { ...player };
 
     if (player.mainCharacter.server && player.mainCharacter.name) {
-      const normalizedRealm = normalizeRealm(player.mainCharacter.server);
-      const cacheKey = `${player.mainCharacter.name}-${normalizedRealm}`;
+      const cacheKey = `${player.mainCharacter.name}-${player.mainCharacter.server}`;
       const cachedChar = cachedData.get(cacheKey);
 
       if (cachedChar) {
@@ -170,7 +169,7 @@ export const enrichRosterWithDatabase = async (
         } else {
           const oldData = await getCharacterData(
             player.mainCharacter.name,
-            normalizedRealm
+            player.mainCharacter.server
           );
 
           if (oldData) {
@@ -196,8 +195,7 @@ export const enrichRosterWithDatabase = async (
     const enrichedSplits: Character[] = [];
     for (const split of player.splits) {
       if (split.server && split.name) {
-        const normalizedRealm = normalizeRealm(split.server);
-        const cacheKey = `${split.name}-${normalizedRealm}`;
+        const cacheKey = `${split.name}-${split.server}`;
         const cachedChar = cachedData.get(cacheKey);
 
         if (cachedChar) {
@@ -220,7 +218,7 @@ export const enrichRosterWithDatabase = async (
             );
             progress.successful++;
           } else {
-            const oldData = await getCharacterData(split.name, normalizedRealm);
+            const oldData = await getCharacterData(split.name, split.server);
 
             if (oldData) {
               enrichedSplits.push({ ...split, ...oldData });
@@ -265,23 +263,16 @@ export const loadRosterFromDatabase = async (roster: Player[]): Promise<Player[]
   const enrichedRoster: Player[] = roster.map(player => {
     const enrichedPlayer = { ...player };
 
-    if (player.mainCharacter.name && player.mainCharacter.server) {
-      const normalizedRealm = normalizeRealm(player.mainCharacter.server);
-      const mainKey = `${player.mainCharacter.name}-${normalizedRealm}`;
-      const cachedMain = cachedData.get(mainKey);
-      if (cachedMain) {
-        enrichedPlayer.mainCharacter = { ...player.mainCharacter, ...cachedMain };
-      }
+    const mainKey = `${player.mainCharacter.name}-${player.mainCharacter.server}`;
+    const cachedMain = cachedData.get(mainKey);
+    if (cachedMain) {
+      enrichedPlayer.mainCharacter = { ...player.mainCharacter, ...cachedMain };
     }
 
     enrichedPlayer.splits = player.splits.map(split => {
-      if (split.name && split.server) {
-        const normalizedRealm = normalizeRealm(split.server);
-        const splitKey = `${split.name}-${normalizedRealm}`;
-        const cachedSplit = cachedData.get(splitKey);
-        return cachedSplit ? { ...split, ...cachedSplit } : split;
-      }
-      return split;
+      const splitKey = `${split.name}-${split.server}`;
+      const cachedSplit = cachedData.get(splitKey);
+      return cachedSplit ? { ...split, ...cachedSplit } : split;
     });
 
     return enrichedPlayer;

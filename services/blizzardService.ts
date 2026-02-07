@@ -8,10 +8,6 @@ const REGION = 'eu';
 const NAMESPACE = 'profile-eu';
 const LOCALE = 'en_GB';
 
-const normalizeRealmForAPI = (realm: string): string => {
-  return realm.toLowerCase().replace(/\s+/g, '-').replace(/'/g, '');
-};
-
 export interface BlizzardCharData {
   name: string;
   itemLevel: number;
@@ -21,7 +17,7 @@ export interface BlizzardCharData {
 
 export interface BlizzardEquipmentItem {
   slot: { type: string; name: string };
-  name?: { en_GB?: string } | string;
+  name: { en_GB: string };
   level: { value: number };
   quality: { type: string };
   item: { id: number };
@@ -67,17 +63,12 @@ export const fetchBlizzardToken = async (): Promise<string> => {
   }
 };
 
-const fetchBlizzardAPI = async (token: string, endpoint: string, silent404 = false): Promise<any | null> => {
+const fetchBlizzardAPI = async (token: string, endpoint: string): Promise<any | null> => {
   try {
     const response = await fetch(endpoint, {
       headers: { Authorization: `Bearer ${token}` }
     });
-    if (!response.ok) {
-      if (!silent404 || response.status !== 404) {
-        console.warn(`Blizzard API returned ${response.status} for ${endpoint}`);
-      }
-      return null;
-    }
+    if (!response.ok) return null;
     return await response.json();
   } catch (e) {
     console.error(`Blizzard API fetch failed for ${endpoint}:`, e);
@@ -86,8 +77,7 @@ const fetchBlizzardAPI = async (token: string, endpoint: string, silent404 = fal
 };
 
 export const getCharacterData = async (token: string, realm: string, name: string): Promise<BlizzardCharData | null> => {
-  const realmSlug = normalizeRealmForAPI(realm);
-  const url = `https://${REGION}.api.blizzard.com/profile/wow/character/${realmSlug}/${name.toLowerCase()}?namespace=${NAMESPACE}&locale=${LOCALE}`;
+  const url = `https://${REGION}.api.blizzard.com/profile/wow/character/${realm.toLowerCase()}/${name.toLowerCase()}?namespace=${NAMESPACE}&locale=${LOCALE}`;
 
   const data = await fetchBlizzardAPI(token, url);
   if (!data) return null;
@@ -101,14 +91,12 @@ export const getCharacterData = async (token: string, realm: string, name: strin
 };
 
 export const getCharacterEquipment = async (token: string, realm: string, name: string): Promise<BlizzardEquipmentData | null> => {
-  const realmSlug = normalizeRealmForAPI(realm);
-  const url = `https://${REGION}.api.blizzard.com/profile/wow/character/${realmSlug}/${name.toLowerCase()}/equipment?namespace=${NAMESPACE}&locale=${LOCALE}`;
+  const url = `https://${REGION}.api.blizzard.com/profile/wow/character/${realm.toLowerCase()}/${name.toLowerCase()}/equipment?namespace=${NAMESPACE}&locale=${LOCALE}`;
   return fetchBlizzardAPI(token, url);
 };
 
 export const getCharacterStats = async (token: string, realm: string, name: string): Promise<CharacterStats | null> => {
-  const realmSlug = normalizeRealmForAPI(realm);
-  const url = `https://${REGION}.api.blizzard.com/profile/wow/character/${realmSlug}/${name.toLowerCase()}/statistics?namespace=${NAMESPACE}&locale=${LOCALE}`;
+  const url = `https://${REGION}.api.blizzard.com/profile/wow/character/${realm.toLowerCase()}/${name.toLowerCase()}/statistics?namespace=${NAMESPACE}&locale=${LOCALE}`;
 
   const data = await fetchBlizzardAPI(token, url);
   if (!data?.stats) return null;
@@ -134,42 +122,31 @@ export const getCharacterStats = async (token: string, realm: string, name: stri
 };
 
 export const getCharacterMythicKeystoneProfile = async (token: string, realm: string, name: string): Promise<any | null> => {
-  const realmSlug = normalizeRealmForAPI(realm);
-  const url = `https://${REGION}.api.blizzard.com/profile/wow/character/${realmSlug}/${name.toLowerCase()}/mythic-keystone-profile?namespace=${NAMESPACE}&locale=${LOCALE}`;
+  const url = `https://${REGION}.api.blizzard.com/profile/wow/character/${realm.toLowerCase()}/${name.toLowerCase()}/mythic-keystone-profile?namespace=${NAMESPACE}&locale=${LOCALE}`;
   return fetchBlizzardAPI(token, url);
 };
 
 export const getCharacterMythicKeystoneSeasonDetails = async (token: string, realm: string, name: string, seasonId: number): Promise<any | null> => {
-  const realmSlug = normalizeRealmForAPI(realm);
-  const url = `https://${REGION}.api.blizzard.com/profile/wow/character/${realmSlug}/${name.toLowerCase()}/mythic-keystone-profile/season/${seasonId}?namespace=${NAMESPACE}&locale=${LOCALE}`;
+  const url = `https://${REGION}.api.blizzard.com/profile/wow/character/${realm.toLowerCase()}/${name.toLowerCase()}/mythic-keystone-profile/season/${seasonId}?namespace=${NAMESPACE}&locale=${LOCALE}`;
   return fetchBlizzardAPI(token, url);
 };
 
 export const getCharacterPvPBracketStats = async (token: string, realm: string, name: string, bracket: string): Promise<any | null> => {
-  const realmSlug = normalizeRealmForAPI(realm);
-  const url = `https://${REGION}.api.blizzard.com/profile/wow/character/${realmSlug}/${name.toLowerCase()}/pvp-bracket/${bracket}?namespace=${NAMESPACE}&locale=${LOCALE}`;
-  return fetchBlizzardAPI(token, url, true);
+  const url = `https://${REGION}.api.blizzard.com/profile/wow/character/${realm.toLowerCase()}/${name.toLowerCase()}/pvp-bracket/${bracket}?namespace=${NAMESPACE}&locale=${LOCALE}`;
+  return fetchBlizzardAPI(token, url);
 };
 
 export const getCharacterPvPSummary = async (token: string, realm: string, name: string): Promise<any | null> => {
-  const realmSlug = normalizeRealmForAPI(realm);
-  const url = `https://${REGION}.api.blizzard.com/profile/wow/character/${realmSlug}/${name.toLowerCase()}/pvp-summary?namespace=${NAMESPACE}&locale=${LOCALE}`;
-  return fetchBlizzardAPI(token, url, true);
+  const url = `https://${REGION}.api.blizzard.com/profile/wow/character/${realm.toLowerCase()}/${name.toLowerCase()}/pvp-summary?namespace=${NAMESPACE}&locale=${LOCALE}`;
+  return fetchBlizzardAPI(token, url);
 };
 
 export const getCharacterAchievements = async (token: string, realm: string, name: string): Promise<any | null> => {
-  const realmSlug = normalizeRealmForAPI(realm);
-  const url = `https://${REGION}.api.blizzard.com/profile/wow/character/${realmSlug}/${name.toLowerCase()}/achievements?namespace=${NAMESPACE}&locale=${LOCALE}`;
+  const url = `https://${REGION}.api.blizzard.com/profile/wow/character/${realm.toLowerCase()}/${name.toLowerCase()}/achievements?namespace=${NAMESPACE}&locale=${LOCALE}`;
   return fetchBlizzardAPI(token, url);
 };
 
 export const getCharacterCollections = async (token: string, realm: string, name: string): Promise<any | null> => {
-  const realmSlug = normalizeRealmForAPI(realm);
-  const url = `https://${REGION}.api.blizzard.com/profile/wow/character/${realmSlug}/${name.toLowerCase()}/collections?namespace=${NAMESPACE}&locale=${LOCALE}`;
-  return fetchBlizzardAPI(token, url);
-};
-
-export const getItemDetails = async (token: string, itemId: number): Promise<{ name: { en_GB: string } } | null> => {
-  const url = `https://${REGION}.api.blizzard.com/data/wow/item/${itemId}?namespace=static-${REGION}&locale=${LOCALE}`;
+  const url = `https://${REGION}.api.blizzard.com/profile/wow/character/${realm.toLowerCase()}/${name.toLowerCase()}/collections?namespace=${NAMESPACE}&locale=${LOCALE}`;
   return fetchBlizzardAPI(token, url);
 };

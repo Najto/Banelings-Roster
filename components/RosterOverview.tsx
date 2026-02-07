@@ -30,10 +30,11 @@ const CharacterCell = ({
   char?: Character;
   isMain?: boolean;
   minIlvl: number;
-  onDelete?: (characterName: string, realm: string) => void;
+  onDelete?: (characterName: string, realm: string) => Promise<void>;
   onAdd?: () => void;
 }) => {
   const [isHovered, setIsHovered] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   if (!char) {
     return (
@@ -75,18 +76,32 @@ const CharacterCell = ({
         {char.className}
       </div>
 
-      {isHovered && onDelete && (
+      {isHovered && onDelete && !isDeleting && (
         <button
-          onClick={(e) => {
+          onClick={async (e) => {
             e.stopPropagation();
             if (window.confirm(`Delete ${char.name}?`)) {
-              onDelete(char.name, char.server || 'blackhand');
+              setIsDeleting(true);
+              try {
+                await onDelete(char.name, char.server || 'blackhand');
+              } catch (error) {
+                console.error('Delete failed:', error);
+                alert('Failed to delete character. Please try again.');
+              } finally {
+                setIsDeleting(false);
+              }
             }
           }}
           className="absolute top-1 right-1 p-1 bg-red-500/80 hover:bg-red-600 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+          disabled={isDeleting}
         >
           <Trash2 size={10} className="text-white" />
         </button>
+      )}
+      {isDeleting && (
+        <div className="absolute top-1 right-1 p-1 bg-red-500/80 rounded">
+          <div className="w-2.5 h-2.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+        </div>
       )}
     </div>
   );

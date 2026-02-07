@@ -63,7 +63,7 @@ const CharacterCell = ({
     >
       <div className="flex items-center justify-between gap-2">
         <span
-          className="text-[10px] font-black truncate uppercase tracking-tighter"
+          className="text-[100px] font-black truncate uppercase tracking-tighter"
           style={{ color: classColor }}
         >
           {char.name}

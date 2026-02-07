@@ -72,7 +72,7 @@ const CharacterCell = ({
           {char.itemLevel}
         </span>
       </div>
-      <div className="text-[7px] font-bold text-slate-700 uppercase tracking-widest mt-0.5 truncate group-hover:text-slate-500 transition-colors">
+      <div className="text-[9px] font-bold text-slate-700 uppercase tracking-widest mt-0.5 truncate group-hover:text-slate-500 transition-colors">
         {char.className}
       </div>
 

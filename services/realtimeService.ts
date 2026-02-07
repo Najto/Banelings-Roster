@@ -29,12 +29,13 @@ class RealtimeService {
           event: '*',
           schema: 'public',
           table: 'splits',
-          filter: `guild_key=eq.${guildKey},version_key=eq.${versionKey}`
+          filter: `guild_key=eq.${guildKey}`
         },
         (payload: any) => {
           if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
             const newData = payload.new;
-            if (newData && newData.data) {
+            if (newData && newData.data && newData.version_key === versionKey) {
+              console.log(`Received split update for ${versionKey}`, newData);
               onUpdate(newData.data as SplitGroup[]);
             }
           }

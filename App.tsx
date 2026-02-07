@@ -525,7 +525,7 @@ const App: React.FC = () => {
       const draggedIsMain = player.mainCharacter.name === draggedCharName;
       const targetIsMain = player.mainCharacter.name === targetCharName;
 
-      // Only proceed if we're swapping main with a split or vice versa
+      // Case 1: Swapping main with a split or vice versa
       if (draggedIsMain || targetIsMain) {
         const oldMainName = draggedIsMain ? draggedCharName : targetCharName;
         const oldMainRealm = draggedIsMain ? draggedRealm : targetRealm;
@@ -545,6 +545,28 @@ const App: React.FC = () => {
           setRoster(updatedRoster);
         } else {
           setError('Failed to swap characters');
+        }
+      }
+      // Case 2: Reordering split characters
+      else if (!draggedIsMain && !targetIsMain) {
+        const draggedIndex = player.splits.findIndex(s => s.name === draggedCharName);
+        const targetIndex = player.splits.findIndex(s => s.name === targetCharName);
+
+        if (draggedIndex !== -1 && targetIndex !== -1) {
+          const success = await persistenceService.reorderSplitCharacters(
+            playerName,
+            draggedCharName,
+            draggedRealm,
+            targetCharName,
+            targetRealm
+          );
+
+          if (success) {
+            const updatedRoster = await persistenceService.loadRosterFromDatabase();
+            setRoster(updatedRoster);
+          } else {
+            setError('Failed to reorder characters');
+          }
         }
       }
     } catch (e) {

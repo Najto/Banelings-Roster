@@ -288,6 +288,79 @@ export const persistenceService = {
     }
   },
 
+  async reorderSplitCharacters(
+    playerName: string,
+    draggedCharName: string,
+    draggedRealm: string,
+    targetCharName: string,
+    targetRealm: string
+  ): Promise<boolean> {
+    try {
+      // Get both characters' current split_order values
+      const { data: chars, error: fetchError } = await supabase
+        .from('character_data')
+        .select('character_name, realm, split_order')
+        .eq('player_name', playerName)
+        .eq('is_main', false)
+        .in('character_name', [draggedCharName, targetCharName]);
+
+      if (fetchError || !chars || chars.length !== 2) {
+        console.error('Failed to fetch characters for reordering:', fetchError);
+        return false;
+      }
+
+      const draggedChar = chars.find(c => c.character_name === draggedCharName);
+      const targetChar = chars.find(c => c.character_name === targetCharName);
+
+      if (!draggedChar || !targetChar) {
+        console.error('Could not find both characters');
+        return false;
+      }
+
+      // Swap the split_order values
+      const draggedOrder = draggedChar.split_order;
+      const targetOrder = targetChar.split_order;
+
+      // Update dragged character's order
+      const { error: draggedError } = await supabase
+        .from('character_data')
+        .update({ split_order: targetOrder })
+        .eq('character_name', draggedCharName)
+        .eq('realm', draggedRealm.toLowerCase())
+        .eq('player_name', playerName);
+
+      if (draggedError) {
+        console.error('Failed to update dragged character order:', draggedError);
+        return false;
+      }
+
+      // Update target character's order
+      const { error: targetError } = await supabase
+        .from('character_data')
+        .update({ split_order: draggedOrder })
+        .eq('character_name', targetCharName)
+        .eq('realm', targetRealm.toLowerCase())
+        .eq('player_name', playerName);
+
+      if (targetError) {
+        console.error('Failed to update target character order:', targetError);
+        // Try to rollback the first update
+        await supabase
+          .from('character_data')
+          .update({ split_order: draggedOrder })
+          .eq('character_name', draggedCharName)
+          .eq('realm', draggedRealm.toLowerCase())
+          .eq('player_name', playerName);
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Exception during reorder split characters:', error);
+      return false;
+    }
+  },
+
   // ROSTER MANAGEMENT FUNCTIONS
   async loadRosterFromDatabase(): Promise<Player[]> {
     try {

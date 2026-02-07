@@ -144,7 +144,7 @@ export const RosterOverview: React.FC<RosterOverviewProps> = ({ roster, minIlvl,
           <div className="px-6 py-4 bg-black/40 border-b border-white/5 flex items-center gap-3">
             <RoleIcon role={role} />
             <h3 className="text-sm font-black uppercase tracking-[0.2em] text-white">{role}s</h3>
-            <span className="text-[12px] text-slate-600 font-bold ml-auto">{groupedPlayers[role].length} Members</span>
+            <span className="text-[20px] text-slate-600 font-bold ml-auto">{groupedPlayers[role].length} Members</span>
           </div>
 
           <div className="overflow-x-auto custom-scrollbar-horizontal">

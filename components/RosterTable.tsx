@@ -1,8 +1,8 @@
 
 import React, { useState, useMemo } from 'react';
 import { Player, Character, CLASS_COLORS, PlayerRole, ROLE_PRIORITY } from '../types';
-import { WEEKLY_M_PLUS_GOAL } from '../constants';
-import { Search, Crown, Info, ExternalLink, CalendarDays, Shield, Heart, Sword, Target, ChevronDown, ChevronUp, ArrowUpDown, Check, Circle, CheckCircle2, XCircle, Clock, AlertCircle } from 'lucide-react';
+import { WEEKLY_M_PLUS_GOAL, WEEKLY_RAID_VAULT_GOAL } from '../constants';
+import { Search, Crown, Info, ExternalLink, CalendarDays, Shield, Heart, Sword, Target, ChevronDown, ChevronUp, ArrowUpDown, Check, Circle } from 'lucide-react';
 
 interface RosterTableProps {
   roster: Player[];
@@ -25,50 +25,6 @@ const RoleIcon = ({ role }: { role: PlayerRole }) => {
     case PlayerRole.RANGE: return <Target size={12} className="text-purple-400" />;
     default: return null;
   }
-};
-
-const EnrichmentStatusBadge = ({ status, lastEnrichedAt }: { status?: 'success' | 'failed' | 'pending' | 'stale'; lastEnrichedAt?: string }) => {
-  if (!status) return null;
-
-  const getStatusConfig = () => {
-    switch (status) {
-      case 'success':
-        return {
-          icon: <CheckCircle2 size={10} />,
-          className: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
-          tooltip: lastEnrichedAt ? `Enriched: ${new Date(lastEnrichedAt).toLocaleString()}` : 'Fresh data'
-        };
-      case 'failed':
-        return {
-          icon: <XCircle size={10} />,
-          className: 'bg-red-500/10 text-red-500 border-red-500/20',
-          tooltip: 'Enrichment failed'
-        };
-      case 'stale':
-        return {
-          icon: <Clock size={10} />,
-          className: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20',
-          tooltip: lastEnrichedAt ? `Last updated: ${new Date(lastEnrichedAt).toLocaleString()}` : 'Stale data'
-        };
-      case 'pending':
-        return {
-          icon: <AlertCircle size={10} />,
-          className: 'bg-slate-500/10 text-slate-400 border-slate-500/20',
-          tooltip: 'Pending enrichment'
-        };
-    }
-  };
-
-  const config = getStatusConfig();
-
-  return (
-    <span
-      className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[8px] font-bold uppercase ${config.className}`}
-      title={config.tooltip}
-    >
-      {config.icon}
-    </span>
-  );
 };
 
 export const RosterTable: React.FC<RosterTableProps> = ({ roster, minIlvl }) => {
@@ -105,13 +61,19 @@ export const RosterTable: React.FC<RosterTableProps> = ({ roster, minIlvl }) => 
 
       if (key === 'role') {
         comparison = (ROLE_PRIORITY[a.role] || 99) - (ROLE_PRIORITY[b.role] || 99);
+        if (comparison === 0) {
+          comparison = a.className.localeCompare(b.className);
+        }
+        if (comparison === 0) {
+          comparison = a.name.localeCompare(b.name);
+        }
       } else if (key === 'name' || key === 'playerName') {
         comparison = (a[key] || "").localeCompare(b[key] || "");
       } else {
         comparison = (a[key] || 0) - (b[key] || 0);
       }
 
-      if (comparison === 0 && key !== 'mPlusRating') {
+      if (comparison === 0 && key !== 'role' && key !== 'mPlusRating') {
         comparison = (b.mPlusRating || 0) - (a.mPlusRating || 0);
       }
 
@@ -148,6 +110,21 @@ export const RosterTable: React.FC<RosterTableProps> = ({ roster, minIlvl }) => 
     if (count >= 4) return { label: '2nd Slot', color: 'text-indigo-400' };
     if (count >= 1) return { label: '1st Slot', color: 'text-amber-500' };
     return { label: 'No Runs', color: 'text-slate-600' };
+  };
+
+  const getRaidProgressBarColor = (count: number) => {
+    if (count >= 6) return 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]';
+    if (count >= 4) return 'bg-sky-500';
+    if (count >= 2) return 'bg-amber-500';
+    if (count >= 1) return 'bg-amber-500/60';
+    return 'bg-slate-700';
+  };
+
+  const getRaidVaultStatus = (count: number) => {
+    if (count >= 6) return { label: 'Complete', color: 'text-emerald-500' };
+    if (count >= 4) return { label: '2nd Slot', color: 'text-sky-400' };
+    if (count >= 2) return { label: '1st Slot', color: 'text-amber-500' };
+    return { label: 'No Kills', color: 'text-slate-600' };
   };
 
   return (
@@ -206,7 +183,10 @@ export const RosterTable: React.FC<RosterTableProps> = ({ roster, minIlvl }) => 
                   <div className="flex items-center">Score <SortIndicator column="mPlusRating" /></div>
                 </th>
                 <th className="px-6 py-5 cursor-pointer hover:text-white transition-colors group text-center" onClick={() => handleSort('weeklyTenPlusCount')}>
-                  <div className="flex items-center justify-center">Vault Progress (10+) <SortIndicator column="weeklyTenPlusCount" /></div>
+                  <div className="flex items-center justify-center">M+ Vault (10+) <SortIndicator column="weeklyTenPlusCount" /></div>
+                </th>
+                <th className="px-6 py-5 text-center">
+                  <div className="flex items-center justify-center">Raid Vault</div>
                 </th>
                 <th className="px-6 py-5">Update</th>
               </tr>
@@ -219,6 +199,9 @@ export const RosterTable: React.FC<RosterTableProps> = ({ roster, minIlvl }) => 
                 const count = char.weeklyTenPlusCount || 0;
                 const isGoalMet = count >= WEEKLY_M_PLUS_GOAL;
                 const vaultStatus = getVaultStatus(count);
+                const raidCount = char.weeklyRaidBossKills || 0;
+                const isRaidGoalMet = raidCount >= WEEKLY_RAID_VAULT_GOAL;
+                const raidVaultStatus = getRaidVaultStatus(raidCount);
                 
                 return (
                   <React.Fragment key={charId}>
@@ -239,12 +222,9 @@ export const RosterTable: React.FC<RosterTableProps> = ({ roster, minIlvl }) => 
                             {char.isMain && <Crown size={12} className="absolute -top-1.5 -right-1.5 text-amber-500 drop-shadow-md" />}
                           </div>
                           <div className="flex flex-col">
-                            <div className="flex items-center gap-2">
-                              <span className="font-black text-sm tracking-tight" style={{ color: CLASS_COLORS[char.className] }}>
-                                {char.name}
-                              </span>
-                              <EnrichmentStatusBadge status={char.enrichmentStatus} lastEnrichedAt={char.lastEnrichedAt} />
-                            </div>
+                            <span className="font-black text-sm tracking-tight" style={{ color: CLASS_COLORS[char.className] }}>
+                              {char.name}
+                            </span>
                             <span className="text-[10px] text-slate-600 font-bold uppercase tracking-tighter">{charServer}</span>
                           </div>
                         </div>
@@ -304,6 +284,42 @@ export const RosterTable: React.FC<RosterTableProps> = ({ roster, minIlvl }) => 
                         </div>
                       </td>
                       <td className="px-6 py-4">
+                        <div className="flex justify-center">
+                          <div className="flex flex-col items-center gap-1.5 w-full max-w-[140px]">
+                            <div className="flex items-center justify-between w-full px-1">
+                                <div className="flex items-center gap-1.5">
+                                    <span className={`text-[10px] font-black ${isRaidGoalMet ? 'text-emerald-500' : 'text-white'}`}>
+                                        {raidCount} / {WEEKLY_RAID_VAULT_GOAL}
+                                    </span>
+                                    {isRaidGoalMet && <Check size={10} className="text-emerald-500" />}
+                                </div>
+                                <span className={`text-[8px] font-black uppercase tracking-tighter ${raidVaultStatus.color}`}>
+                                    {raidVaultStatus.label}
+                                </span>
+                            </div>
+
+                            <div className="relative w-full h-1.5 bg-black/50 rounded-full overflow-hidden border border-white/5">
+                              <div
+                                className={`h-full transition-all duration-700 ease-out ${getRaidProgressBarColor(raidCount)}`}
+                                style={{ width: `${Math.min((raidCount / WEEKLY_RAID_VAULT_GOAL) * 100, 100)}%` }}
+                              />
+                              <div className="absolute inset-0 flex">
+                                <div className="h-full border-r border-white/10" style={{ width: `${(2/6)*100}%` }} title="1st Slot" />
+                                <div className="h-full border-r border-white/10" style={{ width: `${(2/6)*100}%` }} title="2nd Slot" />
+                              </div>
+                            </div>
+
+                            <div className="flex justify-between w-full px-0.5 mt-0.5">
+                                <div className={`w-1.5 h-1.5 rounded-full border border-white/10 ${raidCount >= 2 ? 'bg-amber-500 shadow-[0_0_4px_rgba(245,158,11,0.4)]' : 'bg-slate-800'}`} title="2 Bosses" />
+                                <div className="flex-1 border-b border-white/5 mb-[3px] mx-1" />
+                                <div className={`w-1.5 h-1.5 rounded-full border border-white/10 ${raidCount >= 4 ? 'bg-sky-500 shadow-[0_0_4px_rgba(14,165,233,0.4)]' : 'bg-slate-800'}`} title="4 Bosses" />
+                                <div className="flex-1 border-b border-white/5 mb-[3px] mx-1" />
+                                <div className={`w-1.5 h-1.5 rounded-full border border-white/10 ${raidCount >= 6 ? 'bg-emerald-500 shadow-[0_0_4px_rgba(16,185,129,0.4)]' : 'bg-slate-800'}`} title="6 Bosses" />
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
                         <div className="flex items-center justify-between gap-4">
                           <span className="text-[9px] text-slate-600 font-bold uppercase italic">{char.lastSeen || '-'}</span>
                           {isExpanded ? <ChevronUp size={14} className="text-indigo-400" /> : <ChevronDown size={14} className="text-slate-700" />}
@@ -313,7 +329,7 @@ export const RosterTable: React.FC<RosterTableProps> = ({ roster, minIlvl }) => 
                     
                     {isExpanded && (
                       <tr className="bg-black/60 animate-in slide-in-from-top-2 duration-200">
-                        <td colSpan={7} className="px-8 py-8 border-l-4 border-indigo-500">
+                        <td colSpan={8} className="px-8 py-8 border-l-4 border-indigo-500">
                           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                             <div className="lg:col-span-1 space-y-6">
                               <div className="flex gap-4 items-center mb-4">

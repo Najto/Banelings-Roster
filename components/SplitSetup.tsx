@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { SplitGroup, PlayerRole, CLASS_COLORS, ROLE_PRIORITY, WoWClass, Player, Character } from '../types';
+import { SplitGroup, HelperCharacter, PlayerRole, CLASS_COLORS, ROLE_PRIORITY, WoWClass, Player, Character } from '../types';
 import { persistenceService } from '../services/persistenceService';
 import { 
   Shield, 
@@ -35,12 +35,16 @@ import {
   Cloud,
   CloudOff,
   Loader2,
-  Share2
+  Share2,
+  HandHelping,
+  ChevronDown,
+  GripVertical
 } from 'lucide-react';
 
 interface SplitSetupProps {
   splits: SplitGroup[];
   roster: Player[];
+  minIlvl: number;
 }
 
 const BUFF_PROVIDERS: Record<string, WoWClass[]> = {
@@ -68,7 +72,7 @@ const BUFF_METADATA: Record<string, { description: string, icon: React.ReactNode
   "5% Attack Power": { description: "Battle Shout: Increases Attack Power by 5%.", icon: <Swords size={14} /> },
   "5% Stamina": { description: "Power Word: Fortitude: Increases Stamina by 5%.", icon: <Heart size={14} /> },
   "5% Phys DMG": { description: "Mystic Touch: Targets take 5% increased Physical damage.", icon: <Sword size={14} /> },
-  "5% Magic DMG": { description: "Chaos Brand: Targets take 5% increased Magic damage.", icon: <Sparkles size={14} /> },
+  "5% Magic DMG": { description: "Chaos Brand: Targets take 3% increased Magic damage.", icon: <Sparkles size={14} /> },
   "Devo Aura": { description: "Devotion Aura: Reduces damage taken by 3%.", icon: <ShieldCheck size={14} /> },
   "Skyfury Totem": { description: "Skyfury: Increases Critical Strike and Mastery.", icon: <Wind size={14} /> },
   "Skyfury": { description: "Skyfury: Increases Critical Strike and Mastery.", icon: <Wind size={14} /> },
@@ -90,10 +94,11 @@ const ARMOR_DESCRIPTIONS: Record<string, string> = {
   "plate": "Warriors, Paladins, Death Knights"
 };
 
-const Tooltip = ({ content, children }: { content: string, children: React.ReactNode }) => {
+// Fix: Destructured key and added optional children to satisfy TypeScript when used in maps
+const Tooltip = ({ content, children, key }: { content: string, children?: React.ReactNode, key?: React.Key }) => {
   if (!content) return <>{children}</>;
   return (
-    <div className="group relative inline-block w-full">
+    <div key={key} className="group relative inline-block w-full">
       {children}
       <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-50">
         <div className="bg-[#050507] border border-white/10 text-slate-300 text-[10px] px-3 py-2 rounded-lg shadow-2xl w-48 text-center font-medium leading-relaxed">
@@ -121,15 +126,19 @@ const isSameCharacter = (c1: { name: string, isMain?: boolean, server?: string }
            (c1.server === c2.server || (!c1.server && !c2.server));
 };
 
-export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster }) => {
-  const [source, setSource] = useState<'sheet' | 'web'>('sheet');
+export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl }) => {
+  const [source, setSource] = useState<'sheet' | 'web'>('web');
   const [currentSplits, setCurrentSplits] = useState<SplitGroup[]>([]);
   const [editMember, setEditMember] = useState<{ memberName: string, groupIndex: number } | null>(null);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'synced' | 'error'>('idle');
+  const [addingHelperToGroup, setAddingHelperToGroup] = useState<number | null>(null);
+  const [helperName, setHelperName] = useState('');
+  const [helperClass, setHelperClass] = useState<WoWClass>(WoWClass.WARRIOR);
 
   const resolveSplits = useCallback((baseSplits: SplitGroup[]) => {
     return baseSplits.map(group => ({
       ...group,
+      helpers: group.helpers || [],
       players: group.players.map(p => {
           const member = roster.find(m => 
               m.mainCharacter.name.toLowerCase() === p.name.toLowerCase() || 
@@ -214,13 +223,32 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster }) => {
 
   const handleDrop = (e: React.DragEvent, toGroupIdx: number) => {
     if (source === 'sheet') return;
+    const dragType = e.dataTransfer.getData('dragType');
+    const fromGroupIdx = parseInt(e.dataTransfer.getData('fromGroupIdx'));
+
+    if (isNaN(fromGroupIdx) || fromGroupIdx === toGroupIdx) return;
+
+    if (dragType === 'helper') {
+      const helperIdx = parseInt(e.dataTransfer.getData('helperIdx'));
+      const newSplits = [...currentSplits];
+      const fromGroup = { ...newSplits[fromGroupIdx] };
+      const toGroup = { ...newSplits[toGroupIdx] };
+      const fromHelpers = [...(fromGroup.helpers || [])];
+      const helperToMove = fromHelpers[helperIdx];
+      if (!helperToMove) return;
+      fromHelpers.splice(helperIdx, 1);
+      fromGroup.helpers = fromHelpers;
+      toGroup.helpers = [...(toGroup.helpers || []), helperToMove];
+      newSplits[fromGroupIdx] = fromGroup;
+      newSplits[toGroupIdx] = toGroup;
+      saveWebSplits(newSplits);
+      return;
+    }
+
     const playerName = e.dataTransfer.getData('playerName');
     const charName = e.dataTransfer.getData('charName');
     const isMain = e.dataTransfer.getData('isMain') === 'true';
     const server = e.dataTransfer.getData('server') || undefined;
-    const fromGroupIdx = parseInt(e.dataTransfer.getData('fromGroupIdx'));
-
-    if (isNaN(fromGroupIdx) || fromGroupIdx === toGroupIdx) return;
 
     const newSplits = [...currentSplits];
     const fromGroup = newSplits[fromGroupIdx];
@@ -266,6 +294,34 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster }) => {
     newSplits[groupIndex] = updateGroupStats(group);
     saveWebSplits(newSplits);
     setEditMember(null);
+  };
+
+  const addHelper = (groupIdx: number, name: string, className: WoWClass) => {
+    const newSplits = [...currentSplits];
+    const group = { ...newSplits[groupIdx] };
+    group.helpers = [...(group.helpers || []), { name, className }];
+    newSplits[groupIdx] = group;
+    saveWebSplits(newSplits);
+    setAddingHelperToGroup(null);
+    setHelperName('');
+    setHelperClass(WoWClass.WARRIOR);
+  };
+
+  const removeHelper = (groupIdx: number, helperIdx: number) => {
+    const newSplits = [...currentSplits];
+    const group = { ...newSplits[groupIdx] };
+    group.helpers = (group.helpers || []).filter((_, i) => i !== helperIdx);
+    newSplits[groupIdx] = group;
+    saveWebSplits(newSplits);
+  };
+
+  const handleHelperDragStart = (e: React.DragEvent, helperIdx: number, helper: HelperCharacter, fromGroupIdx: number) => {
+    if (source === 'sheet') return;
+    e.dataTransfer.setData('dragType', 'helper');
+    e.dataTransfer.setData('helperIdx', helperIdx.toString());
+    e.dataTransfer.setData('helperName', helper.name);
+    e.dataTransfer.setData('helperClass', helper.className);
+    e.dataTransfer.setData('fromGroupIdx', fromGroupIdx.toString());
   };
 
   const playersByRole = useMemo(() => {
@@ -339,12 +395,19 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster }) => {
                 
                 <div className="h-4 w-px bg-white/10" />
                 
-                <button 
+                <button
                   onClick={async () => {
-                    if(confirm("Shared Version auf Spreadsheet-Stand zurücksetzen und Cloud überschreiben? Alle anderen Member sehen dann diesen Stand.")) {
-                      const base = resolveSplits(splits);
-                      await saveWebSplits(base);
+                    const pw = prompt("Enter admin password to reset cloud:");
+                    if (pw !== 'admin1337') {
+                      if (pw !== null) alert("Incorrect password.");
+                      return;
                     }
+                    const existingHelpers = currentSplits.map(g => g.helpers || []);
+                    const base = resolveSplits(splits).map((g, i) => ({
+                      ...g,
+                      helpers: existingHelpers[i] || []
+                    }));
+                    await saveWebSplits(base);
                   }}
                   className="group flex items-center gap-2 text-slate-600 hover:text-red-400 transition-colors"
                   title="Overwrite Cloud with Spreadsheet Data"
@@ -390,7 +453,7 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster }) => {
                   const role = PlayerRole[roleKey as keyof typeof PlayerRole];
                   const membersOfRole = playersByRole[role];
                   if (membersOfRole.length === 0) return null;
-                  
+
                   return (
                     <div key={role} className="space-y-2">
                       <div className="flex items-center gap-2 px-2">
@@ -400,11 +463,11 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster }) => {
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         {membersOfRole.map((member, idx) => {
                           const assignedChar = group.players.find(p => p.playerName === member.name);
-                          
+
                           if (assignedChar) {
                             return (
-                              <div 
-                                key={member.id} 
+                              <div
+                                key={member.id}
                                 draggable={source === 'web'}
                                 onDragStart={(e) => handleDragStart(e, member.name, assignedChar.name, assignedChar.isMain, assignedChar.server, groupIdx)}
                                 onClick={() => source === 'web' && setEditMember({ memberName: member.name, groupIndex: groupIdx })}
@@ -422,7 +485,7 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster }) => {
                                   </div>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                    <span className={`text-[10px] font-black px-1.5 py-0.5 rounded ${assignedChar.ilvl >= 630 ? 'text-indigo-400 bg-indigo-400/5' : 'text-slate-500 bg-black'}`}>
+                                    <span className={`text-[10px] font-black px-1.5 py-0.5 rounded ${assignedChar.ilvl >= minIlvl ? 'text-indigo-400 bg-indigo-400/5' : 'text-red-500 bg-red-500/10'}`}>
                                         {assignedChar.ilvl}
                                     </span>
                                     {source === 'web' && <Settings2 size={10} className="text-slate-700 opacity-0 group-hover:opacity-100" />}
@@ -431,7 +494,7 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster }) => {
                             );
                           } else if (source === 'web') {
                             return (
-                              <div 
+                              <div
                                 key={member.id}
                                 onClick={() => setEditMember({ memberName: member.name, groupIndex: groupIdx })}
                                 className="flex items-center justify-between p-2.5 rounded-xl bg-white/[0.01] border border-dashed border-white/5 hover:border-indigo-500/30 hover:bg-white/[0.03] transition-all group cursor-pointer"
@@ -457,6 +520,98 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster }) => {
                     </div>
                   );
                 })}
+
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 px-2">
+                    <HandHelping size={14} className="text-amber-400" />
+                    <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-500">Helper</h4>
+                    <span className="text-[7px] font-bold uppercase tracking-tighter text-slate-700 ml-auto">{(group.helpers || []).length} added</span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {(group.helpers || []).map((helper, hIdx) => (
+                      <div
+                        key={`helper-${hIdx}`}
+                        draggable={source === 'web'}
+                        onDragStart={(e) => handleHelperDragStart(e, hIdx, helper, groupIdx)}
+                        className={`flex items-center justify-between p-2.5 rounded-xl bg-amber-500/[0.03] border border-amber-500/10 hover:border-amber-500/20 transition-all group ${source === 'web' ? 'cursor-grab active:cursor-grabbing hover:bg-amber-500/[0.06]' : ''}`}
+                      >
+                        <div className="flex items-center gap-3">
+                          {source === 'web' && <GripVertical size={12} className="text-slate-700 opacity-0 group-hover:opacity-100 transition-opacity" />}
+                          <div className="flex flex-col">
+                            <span className="text-xs font-black truncate" style={{ color: CLASS_COLORS[helper.className] }}>{helper.name}</span>
+                            <span className="text-[8px] font-bold uppercase px-1 rounded bg-amber-500/10 text-amber-500 w-fit">Helper</span>
+                          </div>
+                        </div>
+                        {source === 'web' && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); removeHelper(groupIdx, hIdx); }}
+                            className="p-1 text-slate-700 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+
+                    {source === 'web' && addingHelperToGroup === groupIdx && (
+                      <div className="col-span-1 sm:col-span-2 flex flex-col gap-2 p-3 rounded-xl bg-white/[0.02] border border-amber-500/20">
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={helperName}
+                            onChange={(e) => setHelperName(e.target.value)}
+                            placeholder="Character name"
+                            className="flex-1 bg-black/60 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-amber-500/40"
+                            autoFocus
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && helperName.trim()) addHelper(groupIdx, helperName.trim(), helperClass);
+                              if (e.key === 'Escape') { setAddingHelperToGroup(null); setHelperName(''); }
+                            }}
+                          />
+                          <div className="relative">
+                            <select
+                              value={helperClass}
+                              onChange={(e) => setHelperClass(e.target.value as WoWClass)}
+                              className="appearance-none bg-black/60 border border-white/10 rounded-lg px-3 py-1.5 pr-7 text-xs text-white focus:outline-none focus:border-amber-500/40 cursor-pointer"
+                              style={{ color: CLASS_COLORS[helperClass] }}
+                            >
+                              {Object.values(WoWClass).filter(c => c !== WoWClass.UNKNOWN).map(cls => (
+                                <option key={cls} value={cls}>{cls}</option>
+                              ))}
+                            </select>
+                            <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-600 pointer-events-none" />
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => helperName.trim() && addHelper(groupIdx, helperName.trim(), helperClass)}
+                            disabled={!helperName.trim()}
+                            className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[10px] font-black uppercase tracking-widest hover:bg-amber-500/20 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                          >
+                            <PlusCircle size={12} />
+                            Add
+                          </button>
+                          <button
+                            onClick={() => { setAddingHelperToGroup(null); setHelperName(''); }}
+                            className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/5 text-slate-500 text-[10px] font-black uppercase tracking-widest hover:text-white transition-all"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {source === 'web' && addingHelperToGroup !== groupIdx && (
+                      <button
+                        onClick={() => { setAddingHelperToGroup(groupIdx); setHelperName(''); setHelperClass(WoWClass.WARRIOR); }}
+                        className="flex items-center justify-center gap-2 p-2.5 rounded-xl bg-white/[0.01] border border-dashed border-amber-500/10 hover:border-amber-500/30 hover:bg-amber-500/[0.03] transition-all group/add cursor-pointer"
+                      >
+                        <PlusCircle size={12} className="text-slate-700 group-hover/add:text-amber-400 transition-colors" />
+                        <span className="text-[9px] font-black uppercase tracking-widest text-slate-700 group-hover/add:text-amber-400 transition-colors">Add Helper</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
 
               <div className="lg:col-span-4 space-y-6">
@@ -467,7 +622,7 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster }) => {
                   <div className="space-y-2">
                     {group.buffs.filter(b => b.name.toLowerCase() !== 'raidbuffs').map((buff, i) => {
                       const providers = BUFF_PROVIDERS[buff.name] || BUFF_PROVIDERS[buff.name.replace(/\bTotem\b/gi, '').trim()];
-                      const isActive = group.players.some(p => providers?.includes(p.className));
+                      const isActive = group.players.some(p => providers?.includes(p.className)) || (group.helpers || []).some(h => providers?.includes(h.className));
                       const meta = BUFF_METADATA[buff.name] || BUFF_METADATA[buff.name.replace(/\bTotem\b/gi, '').trim()];
                       return (
                         <Tooltip key={i} content={meta?.description || ""}>
@@ -505,12 +660,12 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster }) => {
 
                 <div className="bg-black/40 border border-white/5 rounded-xl p-4">
                   <h5 className="text-[9px] font-black uppercase tracking-widest text-slate-500 mb-4 flex items-center gap-2">
-                      <Info size={12} className="text-indigo-500" /> Key
+                      <Info size={12} className="text-indigo-500" /> Key Utility
                   </h5>
                   <div className="space-y-2">
-                    {group.utility.map((util, i) => {
+                    {group.utility.filter(u => u.name.toLowerCase() !== 'utility').map((util, i) => {
                       const providers = BUFF_PROVIDERS[util.name];
-                      const isActive = group.players.some(p => providers?.includes(p.className));
+                      const isActive = group.players.some(p => providers?.includes(p.className)) || (group.helpers || []).some(h => providers?.includes(h.className));
                       const meta = BUFF_METADATA[util.name];
                       return (
                         <Tooltip key={i} content={meta?.description || ""}>

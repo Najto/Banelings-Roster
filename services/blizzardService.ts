@@ -1,51 +1,13 @@
 
-import { WoWClass, CharacterStats, CrestProgress, PvPStats } from '../types';
+import { WoWClass } from '../types';
 
-const CLIENT_ID = "6297890373d64a43920eebba7395ddd7";
+const CLIENT_ID = "6297890373d64a43920eebba7395ddd7"; 
 const CLIENT_SECRET = "2aik8t8euM3mGGYDvUrELn9lNVarodGr";
 
-const REGION = 'eu';
-const NAMESPACE = 'profile-eu';
-const LOCALE = 'en_GB';
-
-export interface BlizzardCharData {
-  name: string;
-  itemLevel: number;
-  className: WoWClass;
-  realm: string;
-}
-
-export interface BlizzardEquipmentItem {
-  slot: { type: string; name: string };
-  name: { en_GB: string };
-  level: { value: number };
-  quality: { type: string };
-  item: { id: number };
-  bonus_list?: number[];
-  enchantments?: { display_string: { en_GB: string } }[];
-  sockets?: { item: { id: number } }[];
-}
-
-export interface BlizzardEquipmentData {
-  equipped_items: BlizzardEquipmentItem[];
-}
-
-export interface BlizzardStatsData {
-  character_class: { name: string };
-  active_spec: { name: string };
-  equipped_item_level: number;
-  health: number;
-  power: number;
-  power_type: { name: string };
-  stats: Array<{ type: { type: string }; value: number }>;
-  speed: { rating: number; rating_bonus: number };
-}
-
-export interface BlizzardCurrency {
-  id: number;
-  quantity: number;
-}
-
+/**
+ * Fetches an OAuth Client Credentials token from Battle.net.
+ * Required for all subsequent API calls.
+ */
 export const fetchBlizzardToken = async (): Promise<string> => {
   try {
     const response = await fetch("https://oauth.battle.net/token", {
@@ -58,95 +20,146 @@ export const fetchBlizzardToken = async (): Promise<string> => {
     const data = await response.json();
     return data.access_token;
   } catch (e) {
-    console.error("Auth failed", e);
+    console.error("Blizzard Auth failed", e);
     return "";
   }
 };
 
-const fetchBlizzardAPI = async (token: string, endpoint: string): Promise<any | null> => {
+/**
+ * Endpoint: /profile/wow/character/{realm}/{name}
+ * Returns: Basic character data (Level, Race, Class, Active Title, Equipped Item Level).
+ */
+export const getCharacterSummary = async (token: string, realm: string, name: string): Promise<any> => {
+  const base = `https://eu.api.blizzard.com/profile/wow/character/${realm.toLowerCase()}/${name.toLowerCase()}`;
+  const ns = "profile-eu";
+  
   try {
-    const response = await fetch(endpoint, {
+    const response = await fetch(`${base}?namespace=${ns}&locale=en_GB`, {
       headers: { Authorization: `Bearer ${token}` }
     });
     if (!response.ok) return null;
     return await response.json();
   } catch (e) {
-    console.error(`Blizzard API fetch failed for ${endpoint}:`, e);
     return null;
   }
 };
 
-export const getCharacterData = async (token: string, realm: string, name: string): Promise<BlizzardCharData | null> => {
-  const url = `https://${REGION}.api.blizzard.com/profile/wow/character/${realm.toLowerCase()}/${name.toLowerCase()}?namespace=${NAMESPACE}&locale=${LOCALE}`;
-
-  const data = await fetchBlizzardAPI(token, url);
-  if (!data) return null;
-
-  return {
-    name: data.name,
-    itemLevel: data.equipped_item_level,
-    className: data.character_class.name as WoWClass,
-    realm: data.realm.name
-  };
+/**
+ * Endpoint: /profile/wow/character/{realm}/{name}/statistics
+ * Returns: Primary and Secondary stats (Crit, Haste, Mastery, Versatility).
+ */
+export const getCharacterStats = async (token: string, realm: string, name: string): Promise<any> => {
+  const base = `https://eu.api.blizzard.com/profile/wow/character/${realm.toLowerCase()}/${name.toLowerCase()}/statistics`;
+  const ns = "profile-eu";
+  
+  try {
+    const response = await fetch(`${base}?namespace=${ns}&locale=en_GB`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (!response.ok) return null;
+    return await response.json();
+  } catch (e) {
+    return null;
+  }
 };
 
-export const getCharacterEquipment = async (token: string, realm: string, name: string): Promise<BlizzardEquipmentData | null> => {
-  const url = `https://${REGION}.api.blizzard.com/profile/wow/character/${realm.toLowerCase()}/${name.toLowerCase()}/equipment?namespace=${NAMESPACE}&locale=${LOCALE}`;
-  return fetchBlizzardAPI(token, url);
+// Fetch character achievements summary
+export const getCharacterAchievements = async (token: string, realm: string, name: string): Promise<any> => {
+  const base = `https://eu.api.blizzard.com/profile/wow/character/${realm.toLowerCase()}/${name.toLowerCase()}/achievements`;
+  const ns = "profile-eu";
+  try {
+    const response = await fetch(`${base}?namespace=${ns}&locale=en_GB`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    return response.ok ? await response.json() : null;
+  } catch (e) { return null; }
 };
 
-export const getCharacterStats = async (token: string, realm: string, name: string): Promise<CharacterStats | null> => {
-  const url = `https://${REGION}.api.blizzard.com/profile/wow/character/${realm.toLowerCase()}/${name.toLowerCase()}/statistics?namespace=${NAMESPACE}&locale=${LOCALE}`;
-
-  const data = await fetchBlizzardAPI(token, url);
-  if (!data?.stats) return null;
-
-  const statMap: Record<string, number> = {};
-  data.stats.forEach((stat: any) => {
-    statMap[stat.type.type] = stat.value || 0;
-  });
-
-  const critRating = statMap['CRIT_RATING'] || 0;
-  const hasteRating = statMap['HASTE_RATING'] || 0;
-  const masteryRating = statMap['MASTERY_RATING'] || 0;
-  const versRating = statMap['VERSATILITY'] || 0;
-
-  const RATING_PER_PERCENT = 180;
-
-  return {
-    crit: critRating / RATING_PER_PERCENT,
-    haste: hasteRating / RATING_PER_PERCENT,
-    mastery: masteryRating / RATING_PER_PERCENT,
-    versatility: versRating / RATING_PER_PERCENT
-  };
+// Aggregate collections data (mounts, pets, toys) as expected by App.tsx
+export const getCharacterCollections = async (token: string, realm: string, name: string): Promise<any> => {
+  const ns = "profile-eu";
+  const baseUrl = `https://eu.api.blizzard.com/profile/wow/character/${realm.toLowerCase()}/${name.toLowerCase()}/collections`;
+  try {
+    const [mounts, pets, toys] = await Promise.all([
+      fetch(`${baseUrl}/mounts?namespace=${ns}&locale=en_GB`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.ok ? r.json() : null),
+      fetch(`${baseUrl}/pets?namespace=${ns}&locale=en_GB`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.ok ? r.json() : null),
+      fetch(`${baseUrl}/toys?namespace=${ns}&locale=en_GB`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.ok ? r.json() : null),
+    ]);
+    return { mounts, pets, toys };
+  } catch (e) { return null; }
 };
 
-export const getCharacterMythicKeystoneProfile = async (token: string, realm: string, name: string): Promise<any | null> => {
-  const url = `https://${REGION}.api.blizzard.com/profile/wow/character/${realm.toLowerCase()}/${name.toLowerCase()}/mythic-keystone-profile?namespace=${NAMESPACE}&locale=${LOCALE}`;
-  return fetchBlizzardAPI(token, url);
+// Fetch character primary and secondary professions
+export const getCharacterProfessions = async (token: string, realm: string, name: string): Promise<any> => {
+  const base = `https://eu.api.blizzard.com/profile/wow/character/${realm.toLowerCase()}/${name.toLowerCase()}/professions`;
+  const ns = "profile-eu";
+  try {
+    const response = await fetch(`${base}?namespace=${ns}&locale=en_GB`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    return response.ok ? await response.json() : null;
+  } catch (e) { return null; }
 };
 
-export const getCharacterMythicKeystoneSeasonDetails = async (token: string, realm: string, name: string, seasonId: number): Promise<any | null> => {
-  const url = `https://${REGION}.api.blizzard.com/profile/wow/character/${realm.toLowerCase()}/${name.toLowerCase()}/mythic-keystone-profile/season/${seasonId}?namespace=${NAMESPACE}&locale=${LOCALE}`;
-  return fetchBlizzardAPI(token, url);
+/**
+ * Endpoint: /profile/wow/character/{realm}/{name}/equipment
+ * Returns: Detailed item data for every equipped slot, including:
+ * - Sockets (gems)
+ * - Enchantments
+ * - Set Bonuses
+ * - Upgrade Tracks
+ */
+export const getCharacterEquipment = async (token: string, realm: string, name: string): Promise<any> => {
+  const base = `https://eu.api.blizzard.com/profile/wow/character/${realm.toLowerCase()}/${name.toLowerCase()}/equipment`;
+  const ns = "profile-eu";
+  try {
+    const response = await fetch(`${base}?namespace=${ns}&locale=en_GB`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    return response.ok ? await response.json() : null;
+  } catch (e) { return null; }
 };
 
-export const getCharacterPvPBracketStats = async (token: string, realm: string, name: string, bracket: string): Promise<any | null> => {
-  const url = `https://${REGION}.api.blizzard.com/profile/wow/character/${realm.toLowerCase()}/${name.toLowerCase()}/pvp-bracket/${bracket}?namespace=${NAMESPACE}&locale=${LOCALE}`;
-  return fetchBlizzardAPI(token, url);
+export const getCharacterPvPSummary = async (token: string, realm: string, name: string): Promise<any> => {
+  const base = `https://eu.api.blizzard.com/profile/wow/character/${realm.toLowerCase()}/${name.toLowerCase()}/pvp-summary`;
+  const ns = "profile-eu";
+  try {
+    const response = await fetch(`${base}?namespace=${ns}&locale=en_GB`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    return response.ok ? await response.json() : null;
+  } catch (e) { return null; }
 };
 
-export const getCharacterPvPSummary = async (token: string, realm: string, name: string): Promise<any | null> => {
-  const url = `https://${REGION}.api.blizzard.com/profile/wow/character/${realm.toLowerCase()}/${name.toLowerCase()}/pvp-summary?namespace=${NAMESPACE}&locale=${LOCALE}`;
-  return fetchBlizzardAPI(token, url);
+export const getCharacterPvPBracket = async (token: string, realm: string, name: string, bracket: string): Promise<any> => {
+  const base = `https://eu.api.blizzard.com/profile/wow/character/${realm.toLowerCase()}/${name.toLowerCase()}/pvp-bracket/${bracket}`;
+  const ns = "profile-eu";
+  try {
+    const response = await fetch(`${base}?namespace=${ns}&locale=en_GB`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    return response.ok ? await response.json() : null;
+  } catch (e) { return null; }
 };
 
-export const getCharacterAchievements = async (token: string, realm: string, name: string): Promise<any | null> => {
-  const url = `https://${REGION}.api.blizzard.com/profile/wow/character/${realm.toLowerCase()}/${name.toLowerCase()}/achievements?namespace=${NAMESPACE}&locale=${LOCALE}`;
-  return fetchBlizzardAPI(token, url);
+export const getCharacterReputations = async (token: string, realm: string, name: string): Promise<any> => {
+  const base = `https://eu.api.blizzard.com/profile/wow/character/${realm.toLowerCase()}/${name.toLowerCase()}/reputations`;
+  const ns = "profile-eu";
+  try {
+    const response = await fetch(`${base}?namespace=${ns}&locale=en_GB`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    return response.ok ? await response.json() : null;
+  } catch (e) { return null; }
 };
 
-export const getCharacterCollections = async (token: string, realm: string, name: string): Promise<any | null> => {
-  const url = `https://${REGION}.api.blizzard.com/profile/wow/character/${realm.toLowerCase()}/${name.toLowerCase()}/collections?namespace=${NAMESPACE}&locale=${LOCALE}`;
-  return fetchBlizzardAPI(token, url);
+export const getCharacterQuests = async (token: string, realm: string, name: string): Promise<any> => {
+  const base = `https://eu.api.blizzard.com/profile/wow/character/${realm.toLowerCase()}/${name.toLowerCase()}/quests/completed`;
+  const ns = "profile-eu";
+  try {
+    const response = await fetch(`${base}?namespace=${ns}&locale=en_GB`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    return response.ok ? await response.json() : null;
+  } catch (e) { return null; }
 };

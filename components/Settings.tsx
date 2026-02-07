@@ -2,8 +2,7 @@
 import React from 'react';
 import { FileSpreadsheet, ExternalLink } from 'lucide-react';
 
-const SPREADSHEET_WEB_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vS8AIcE-2b-IJohqlFiUCp0laqabWOptLdAk1OpL9o8LptWglWr2rMwnV-7YM6dwwGiEO9ruz7triLa/pubhtml?widget=true&headers=false";
-
+const SPREADSHEET_WEB_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vS8AIcE-2b-IJohqlFiUCp0laqabWOptLdAk1OpL9o8LptWglWr2rMwnV-7YM6dwwGiEO9ruz7triLa/pubhtml";
 
 export const Settings: React.FC = () => {
   return (
@@ -21,7 +20,7 @@ export const Settings: React.FC = () => {
             </div>
           </div>
           <a 
-            href="https://docs.google.com/spreadsheets/d/1zahCGbnowtqnmn2G82lZ6xVXGycjJlBRXAdvLymqapw" 
+            href="https://docs.google.com/spreadsheets/d/1vS8AIcE-2b-IJohqlFiUCp0laqabWOptLdAk1OpL9o8LptWglWr2rMwnV-7YM6dwwGiEO9ruz7triLa/edit" 
             target="_blank" 
             rel="noreferrer"
             className="bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 transition-all shadow-lg shadow-emerald-600/20"
@@ -32,13 +31,10 @@ export const Settings: React.FC = () => {
         </div>
 
         <div className="rounded-xl border border-white/10 overflow-hidden bg-black h-[600px] relative group">
-          <iframe
-            src={SPREADSHEET_WEB_URL}
+          <iframe 
+            src={SPREADSHEET_WEB_URL} 
             className="w-full h-full border-none opacity-80 group-hover:opacity-100 transition-opacity"
             title="Guild Spreadsheet"
-            sandbox="allow-scripts allow-same-origin"
-            loading="lazy"
-            referrerPolicy="no-referrer-when-downgrade"
           />
           <div className="absolute inset-0 pointer-events-none border-2 border-indigo-500/10 rounded-xl"></div>
         </div>

@@ -504,8 +504,8 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
                                     <UserPlus size={12} />
                                   </div>
                                   <div className="flex flex-col">
-                                    <span className="text-[10px] font-black text-slate-700 group-hover:text-slate-500 transition-colors uppercase tracking-widest">{member.name}</span>
-                                    <span className="text-[7px] text-slate-800 font-bold uppercase tracking-tighter">Pending Slot</span>
+                                    <span className="text-[11px] font-black text-slate-700 group-hover:text-slate-500 transition-colors uppercase tracking-widest">{member.name}</span>
+                                    <span className="text-[8px] text-slate-800 font-bold uppercase tracking-tighter">Pending Slot</span>
                                   </div>
                                 </div>
                                 <div className="flex items-center">

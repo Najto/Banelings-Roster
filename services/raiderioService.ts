@@ -81,10 +81,6 @@ export const fetchRaiderIOData = async (name: string, realm: string): Promise<Pa
     const gearItems: GearItem[] = GEAR_SLOTS.map(slot => {
       const item = data.gear?.items?.[slot];
       if (!item) return null;
-
-      const isTierSlot = TIER_SLOTS.includes(slot);
-      const hasTierInfo = item.tier === true || item.tier === 'true' || (typeof item.tier === 'string' && item.tier.length > 0);
-
       return {
         slot: slot,
         name: item.name || 'Unknown',
@@ -93,7 +89,7 @@ export const fetchRaiderIOData = async (name: string, realm: string): Promise<Pa
         enchant: item.enchant || undefined,
         gems: item.gems?.map((g: any) => g.name) || [],
         bonusIds: item.bonuses || [],
-        tier: isTierSlot && hasTierInfo
+        tier: TIER_SLOTS.includes(slot) && item.tier ? true : false
       };
     }).filter(Boolean) as GearItem[];
 

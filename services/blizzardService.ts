@@ -111,21 +111,25 @@ export const getCharacterStats = async (token: string, realm: string, name: stri
   const url = `https://${REGION}.api.blizzard.com/profile/wow/character/${realmSlug}/${name.toLowerCase()}/statistics?namespace=${NAMESPACE}&locale=${LOCALE}`;
 
   const data = await fetchBlizzardAPI(token, url);
-  if (!data) return null;
+  if (!data?.stats) return null;
 
-  console.log(`📊 Stats raw data for ${name}:`, JSON.stringify(data, null, 2).substring(0, 500));
+  const statMap: Record<string, number> = {};
+  data.stats.forEach((stat: any) => {
+    statMap[stat.type.type] = stat.value || 0;
+  });
 
-  const crit = data.crit?.value || data.melee_crit?.value || data.ranged_crit?.value || data.spell_crit?.value || 0;
-  const haste = data.haste?.value || data.melee_haste?.value || data.ranged_haste?.value || data.spell_haste?.value || 0;
-  const mastery = data.mastery?.value || 0;
-  const versatility = data.versatility || 0;
-  const versatilityDamageBonus = data.versatility_damage_done_bonus || 0;
+  const critRating = statMap['CRIT_RATING'] || 0;
+  const hasteRating = statMap['HASTE_RATING'] || 0;
+  const masteryRating = statMap['MASTERY_RATING'] || 0;
+  const versRating = statMap['VERSATILITY'] || 0;
+
+  const RATING_PER_PERCENT = 180;
 
   return {
-    crit: typeof crit === 'number' ? crit : 0,
-    haste: typeof haste === 'number' ? haste : 0,
-    mastery: typeof mastery === 'number' ? mastery : 0,
-    versatility: typeof versatilityDamageBonus === 'number' ? versatilityDamageBonus : (typeof versatility === 'number' ? versatility / 205 : 0)
+    crit: critRating / RATING_PER_PERCENT,
+    haste: hasteRating / RATING_PER_PERCENT,
+    mastery: masteryRating / RATING_PER_PERCENT,
+    versatility: versRating / RATING_PER_PERCENT
   };
 };
 

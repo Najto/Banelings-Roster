@@ -455,5 +455,189 @@ export const persistenceService = {
         errors: [`Unexpected error: ${error instanceof Error ? error.message : 'Unknown error'}`]
       };
     }
+  },
+
+  // SPREADSHEET IMPORT FUNCTIONS
+  async compareSpreadsheetWithDatabase(): Promise<{
+    newPlayers: Array<{
+      playerName: string;
+      role: PlayerRole;
+      characters: Array<{
+        name: string;
+        realm: string;
+        className: WoWClass;
+        itemLevel: number;
+        isMain: boolean;
+      }>;
+    }>;
+    newCharactersForExisting: Array<{
+      playerName: string;
+      role: PlayerRole;
+      character: {
+        name: string;
+        realm: string;
+        className: WoWClass;
+        itemLevel: number;
+        isMain: boolean;
+      };
+    }>;
+    totalInSpreadsheet: number;
+    totalInDatabase: number;
+    lastSyncCheck: string;
+  }> {
+    try {
+      // Import the spreadsheet service dynamically to avoid circular deps
+      const { fetchRosterFromSheet } = await import('./spreadsheetService');
+
+      // Fetch data from spreadsheet
+      const sheetData = await fetchRosterFromSheet();
+      const sheetPlayers = sheetData.roster;
+
+      // Fetch existing roster members
+      const { data: membersData, error: membersError } = await supabase
+        .from('roster_members')
+        .select('member_name, role');
+
+      if (membersError) {
+        console.error('Error fetching roster members:', membersError);
+        return {
+          newPlayers: [],
+          newCharactersForExisting: [],
+          totalInSpreadsheet: 0,
+          totalInDatabase: 0,
+          lastSyncCheck: new Date().toISOString()
+        };
+      }
+
+      // Fetch existing characters
+      const { data: charactersData, error: charactersError } = await supabase
+        .from('character_data')
+        .select('character_name, realm, player_name');
+
+      if (charactersError) {
+        console.error('Error fetching character data:', charactersError);
+        return {
+          newPlayers: [],
+          newCharactersForExisting: [],
+          totalInSpreadsheet: 0,
+          totalInDatabase: 0,
+          lastSyncCheck: new Date().toISOString()
+        };
+      }
+
+      const existingMemberNames = new Set((membersData || []).map((m: any) => m.member_name.toLowerCase()));
+      const existingCharacters = new Set(
+        (charactersData || []).map((c: any) =>
+          `${c.character_name.toLowerCase()}-${c.realm.toLowerCase()}`
+        )
+      );
+
+      const newPlayers: Array<{
+        playerName: string;
+        role: PlayerRole;
+        characters: Array<{
+          name: string;
+          realm: string;
+          className: WoWClass;
+          itemLevel: number;
+          isMain: boolean;
+        }>;
+      }> = [];
+
+      const newCharactersForExisting: Array<{
+        playerName: string;
+        role: PlayerRole;
+        character: {
+          name: string;
+          realm: string;
+          className: WoWClass;
+          itemLevel: number;
+          isMain: boolean;
+        };
+      }> = [];
+
+      // Process each player from the spreadsheet
+      for (const player of sheetPlayers) {
+        const playerNameLower = player.name.toLowerCase();
+        const isNewPlayer = !existingMemberNames.has(playerNameLower);
+
+        // Collect all characters (main + splits)
+        const allCharacters = [player.mainCharacter, ...player.splits].filter(Boolean);
+
+        if (isNewPlayer) {
+          // New player - add all their characters
+          const newPlayerChars = allCharacters
+            .filter(char => {
+              const charKey = `${char.name.toLowerCase()}-${(char.server || 'blackhand').toLowerCase()}`;
+              return !existingCharacters.has(charKey);
+            })
+            .map(char => ({
+              name: char.name,
+              realm: char.server || 'Blackhand',
+              className: char.className,
+              itemLevel: char.itemLevel,
+              isMain: char.isMain || false,
+            }));
+
+          if (newPlayerChars.length > 0) {
+            newPlayers.push({
+              playerName: player.name,
+              role: player.role,
+              characters: newPlayerChars,
+            });
+          }
+        } else {
+          // Existing player - check for new characters
+          for (const char of allCharacters) {
+            const charKey = `${char.name.toLowerCase()}-${(char.server || 'blackhand').toLowerCase()}`;
+            if (!existingCharacters.has(charKey)) {
+              newCharactersForExisting.push({
+                playerName: player.name,
+                role: player.role,
+                character: {
+                  name: char.name,
+                  realm: char.server || 'Blackhand',
+                  className: char.className,
+                  itemLevel: char.itemLevel,
+                  isMain: char.isMain || false,
+                },
+              });
+            }
+          }
+        }
+      }
+
+      // Calculate totals
+      const totalInSpreadsheet = sheetPlayers.reduce((sum, player) => {
+        return sum + 1 + player.splits.length;
+      }, 0);
+
+      return {
+        newPlayers,
+        newCharactersForExisting,
+        totalInSpreadsheet,
+        totalInDatabase: charactersData?.length || 0,
+        lastSyncCheck: new Date().toISOString()
+      };
+    } catch (error) {
+      console.error('Failed to compare spreadsheet with database:', error);
+      throw error;
+    }
+  },
+
+  async getNextDisplayOrder(): Promise<number> {
+    try {
+      const { data: maxOrderData } = await supabase
+        .from('roster_members')
+        .select('display_order')
+        .order('display_order', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      return (maxOrderData?.display_order || 0) + 1;
+    } catch (error) {
+      console.error('Failed to get next display order:', error);
+      return 1;
+    }
   }
 };

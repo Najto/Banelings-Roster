@@ -63,16 +63,16 @@ const CharacterCell = ({
     >
       <div className="flex items-center justify-between gap-2">
         <span
-          className="text-[12px] font-black truncate uppercase tracking-tighter"
+          className="text-[11px] font-black truncate uppercase tracking-tighter"
           style={{ color: classColor }}
         >
           {char.name}
         </span>
-        <span className={`text-[12px] font-mono font-black ${char.itemLevel >= minIlvl ? 'text-indigo-400' : 'text-slate-600'}`}>
+        <span className={`text-[11px] font-mono font-black ${char.itemLevel >= minIlvl ? 'text-indigo-400' : 'text-slate-600'}`}>
           {char.itemLevel}
         </span>
       </div>
-      <div className="text-[9px] font-bold text-slate-700 uppercase tracking-widest mt-0.5 truncate group-hover:text-slate-500 transition-colors">
+      <div className="text-[8px] font-bold text-slate-700 uppercase tracking-widest mt-0.5 truncate group-hover:text-slate-500 transition-colors">
         {char.className}
       </div>
 

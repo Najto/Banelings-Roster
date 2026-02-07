@@ -186,6 +186,33 @@ export const persistenceService = {
 
   async upsertCharacterData(char: Character, playerName: string, role: PlayerRole): Promise<void> {
     try {
+      // Check if this character already exists to determine split_order
+      const { data: existingChar } = await supabase
+        .from('character_data')
+        .select('split_order')
+        .eq('character_name', char.name)
+        .eq('realm', (char.server || 'blackhand').toLowerCase())
+        .maybeSingle();
+
+      let splitOrder = 0;
+
+      // If this is a new split character (not main and doesn't exist), assign next available split_order
+      if (!char.isMain && !existingChar) {
+        const { data: maxOrderData } = await supabase
+          .from('character_data')
+          .select('split_order')
+          .eq('player_name', playerName)
+          .eq('is_main', false)
+          .order('split_order', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        splitOrder = (maxOrderData?.split_order || -1) + 1;
+      } else if (existingChar) {
+        // Keep existing split_order
+        splitOrder = existingChar.split_order || 0;
+      }
+
       // Map Character object to the specific table schema columns as seen in the user's database
       const payload = {
         character_name: char.name,
@@ -194,6 +221,7 @@ export const persistenceService = {
         role: role,
         class_name: char.className,
         is_main: !!char.isMain,
+        split_order: splitOrder,
         // The nested RIO data goes into the jsonb column
         enriched_data: {
           spec: char.spec,
@@ -392,42 +420,50 @@ export const persistenceService = {
           (char: any) => char.player_name === member.member_name
         );
 
-        // Map database records to Character objects
-        const characters = memberCharacters.map((dbChar: any): Character => ({
-          name: dbChar.character_name,
-          className: dbChar.class_name,
-          server: dbChar.realm,
-          isMain: dbChar.is_main,
-          playerName: dbChar.player_name,
-          itemLevel: dbChar.enriched_data?.itemLevel || 0,
-          spec: dbChar.enriched_data?.spec,
-          race: dbChar.enriched_data?.race,
-          mPlusRating: dbChar.enriched_data?.mPlusRating,
-          weeklyTenPlusCount: dbChar.enriched_data?.weeklyTenPlusCount,
-          raidProgression: dbChar.enriched_data?.raidProgression,
-          gearAudit: dbChar.enriched_data?.gearAudit,
-          thumbnailUrl: dbChar.enriched_data?.thumbnailUrl,
-          profileUrl: dbChar.enriched_data?.profileUrl,
-          weeklyHistory: dbChar.enriched_data?.weeklyHistory,
-          recentRuns: dbChar.enriched_data?.recentRuns,
-          collections: dbChar.enriched_data?.collections,
-          currencies: dbChar.enriched_data?.currencies,
-          pvp: dbChar.enriched_data?.pvp,
-          reputations: dbChar.enriched_data?.reputations,
-          activities: dbChar.enriched_data?.activities,
-          professions: dbChar.enriched_data?.professions,
-          warcraftLogs: dbChar.enriched_data?.warcraftLogs,
-          mPlusRanks: dbChar.enriched_data?.mPlusRanks,
-          raidBossKills: dbChar.enriched_data?.raidBossKills,
-          raidKillBaseline: dbChar.enriched_data?.raidKillBaseline,
-          weeklyRaidBossKills: dbChar.enriched_data?.weeklyRaidBossKills,
-          weeklyRaidKillDetails: dbChar.enriched_data?.weeklyRaidKillDetails,
-          guild: dbChar.enriched_data?.guild,
+        // Map database records to Character objects with split_order
+        const charactersWithOrder = memberCharacters.map((dbChar: any) => ({
+          character: {
+            name: dbChar.character_name,
+            className: dbChar.class_name,
+            server: dbChar.realm,
+            isMain: dbChar.is_main,
+            playerName: dbChar.player_name,
+            itemLevel: dbChar.enriched_data?.itemLevel || 0,
+            spec: dbChar.enriched_data?.spec,
+            race: dbChar.enriched_data?.race,
+            mPlusRating: dbChar.enriched_data?.mPlusRating,
+            weeklyTenPlusCount: dbChar.enriched_data?.weeklyTenPlusCount,
+            raidProgression: dbChar.enriched_data?.raidProgression,
+            gearAudit: dbChar.enriched_data?.gearAudit,
+            thumbnailUrl: dbChar.enriched_data?.thumbnailUrl,
+            profileUrl: dbChar.enriched_data?.profileUrl,
+            weeklyHistory: dbChar.enriched_data?.weeklyHistory,
+            recentRuns: dbChar.enriched_data?.recentRuns,
+            collections: dbChar.enriched_data?.collections,
+            currencies: dbChar.enriched_data?.currencies,
+            pvp: dbChar.enriched_data?.pvp,
+            reputations: dbChar.enriched_data?.reputations,
+            activities: dbChar.enriched_data?.activities,
+            professions: dbChar.enriched_data?.professions,
+            warcraftLogs: dbChar.enriched_data?.warcraftLogs,
+            mPlusRanks: dbChar.enriched_data?.mPlusRanks,
+            raidBossKills: dbChar.enriched_data?.raidBossKills,
+            raidKillBaseline: dbChar.enriched_data?.raidKillBaseline,
+            weeklyRaidBossKills: dbChar.enriched_data?.weeklyRaidBossKills,
+            weeklyRaidKillDetails: dbChar.enriched_data?.weeklyRaidKillDetails,
+            guild: dbChar.enriched_data?.guild,
+          } as Character,
+          split_order: dbChar.split_order || 0,
         }));
 
         // Find main character
-        const mainChar = characters.find(c => c.isMain) || characters[0];
-        const splits = characters.filter(c => !c.isMain);
+        const mainChar = charactersWithOrder.find(c => c.character.isMain)?.character || charactersWithOrder[0]?.character;
+
+        // Filter and sort splits by split_order
+        const splits = charactersWithOrder
+          .filter(c => !c.character.isMain)
+          .sort((a, b) => a.split_order - b.split_order)
+          .map(c => c.character);
 
         return {
           id: member.id,

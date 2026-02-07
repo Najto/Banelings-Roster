@@ -455,6 +455,17 @@ const App: React.FC = () => {
     }
   }, []);
 
+  // Reload Roster Handler
+  const handleReloadRoster = useCallback(async () => {
+    try {
+      const updatedRoster = await persistenceService.loadRosterFromDatabase();
+      setRoster(updatedRoster);
+      setLastUpdate(new Date().toLocaleTimeString());
+    } catch (e) {
+      console.error('Failed to reload roster:', e);
+    }
+  }, []);
+
   // Add Character Handler
   const handleAddCharacter = useCallback((memberName: string, isMain: boolean) => {
     setAddModalContext({ memberName, isMain });
@@ -849,7 +860,7 @@ const App: React.FC = () => {
           {activeTab === 'audit' && <RosterAudit roster={roster} ilvlThresholds={ilvlThresholds} />}
           {activeTab === 'splits' && <SplitSetup splits={splits} roster={roster} minIlvl={minIlvl} />}
           {activeTab === 'analytics' && <AnalyticsDashboard roster={roster} />}
-          {activeTab === 'settings' && <Settings />}
+          {activeTab === 'settings' && <Settings onRosterUpdate={handleReloadRoster} />}
         </div>
       </main>
 

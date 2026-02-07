@@ -13,7 +13,11 @@ interface ImportStatus {
   error?: string;
 }
 
-export const Settings: React.FC = () => {
+interface SettingsProps {
+  onRosterUpdate?: () => void;
+}
+
+export const Settings: React.FC<SettingsProps> = ({ onRosterUpdate }) => {
   const [migrationStatus, setMigrationStatus] = useState<{
     needed: boolean;
     uniquePlayers: number;
@@ -126,6 +130,10 @@ export const Settings: React.FC = () => {
         });
       }, 3000);
       await checkSpreadsheet();
+      // Trigger roster reload in parent component
+      if (onRosterUpdate) {
+        onRosterUpdate();
+      }
     } else {
       setImportStatuses(prev => new Map(prev).set(charKey, {
         status: 'failed',
@@ -214,6 +222,10 @@ export const Settings: React.FC = () => {
 
     setBatchImporting(false);
     await checkSpreadsheet();
+    // Trigger roster reload in parent component
+    if (onRosterUpdate) {
+      onRosterUpdate();
+    }
   };
 
   const getClassColor = (className: WoWClass): string => {

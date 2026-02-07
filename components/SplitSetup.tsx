@@ -69,7 +69,7 @@ const BUFF_METADATA: Record<string, { description: string, icon: React.ReactNode
   "5% Attack Power": { description: "Battle Shout: Increases Attack Power by 5%.", icon: <Swords size={14} /> },
   "5% Stamina": { description: "Power Word: Fortitude: Increases Stamina by 5%.", icon: <Heart size={14} /> },
   "5% Phys DMG": { description: "Mystic Touch: Targets take 5% increased Physical damage.", icon: <Sword size={14} /> },
-  "3% Magic DMG": { description: "Chaos Brand: Targets take 5% increased Magic damage.", icon: <Sparkles size={14} /> },
+  "3% Magic DMG": { description: "Chaos Brand: Targets take 3% increased Magic damage.", icon: <Sparkles size={14} /> },
   "Devo Aura": { description: "Devotion Aura: Reduces damage taken by 3%.", icon: <ShieldCheck size={14} /> },
   "Skyfury Totem": { description: "Skyfury: Increases Critical Strike and Mastery.", icon: <Wind size={14} /> },
   "Skyfury": { description: "Skyfury: Increases Critical Strike and Mastery.", icon: <Wind size={14} /> },

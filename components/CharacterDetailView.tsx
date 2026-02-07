@@ -6,6 +6,7 @@ import { Shield, Heart, Sword, Target, ExternalLink, ChevronLeft, ChevronRight, 
 interface CharacterDetailViewProps {
   roster: Player[];
   minIlvl: number;
+  initialMemberName?: string | null;
 }
 
 const SLOT_DISPLAY_NAMES: Record<string, string> = {
@@ -119,7 +120,7 @@ const GearRow: React.FC<{ slot: string; item: SlotAudit; isEnchantable: boolean 
   );
 };
 
-export const CharacterDetailView: React.FC<CharacterDetailViewProps> = ({ roster, minIlvl }) => {
+export const CharacterDetailView: React.FC<CharacterDetailViewProps> = ({ roster, minIlvl, initialMemberName }) => {
   const [selectedPlayerIndex, setSelectedPlayerIndex] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCharIndex, setSelectedCharIndex] = useState(0);
@@ -130,6 +131,15 @@ export const CharacterDetailView: React.FC<CharacterDetailViewProps> = ({ roster
       p.mainCharacter.name.toLowerCase().includes(searchTerm.toLowerCase())
     );
   }, [roster, searchTerm]);
+
+  React.useEffect(() => {
+    if (initialMemberName) {
+      const index = filteredPlayers.findIndex(p => p.name === initialMemberName);
+      if (index !== -1) {
+        setSelectedPlayerIndex(index);
+      }
+    }
+  }, [initialMemberName, filteredPlayers]);
 
   const currentPlayer = filteredPlayers[selectedPlayerIndex] || filteredPlayers[0];
   const allCharsForPlayer = currentPlayer ? [currentPlayer.mainCharacter, ...currentPlayer.splits] : [];

@@ -74,6 +74,7 @@ const App: React.FC = () => {
   });
   const [activeTab, setActiveTab] = useState<'roster' | 'audit' | 'analytics' | 'splits' | 'settings'>('roster');
   const [rosterViewMode, setRosterViewMode] = useState<'table' | 'overview' | 'detail'>('overview');
+  const [selectedMemberName, setSelectedMemberName] = useState<string | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
   const [updateProgress, setUpdateProgress] = useState({ current: 0, total: 0 });
   const [error, setError] = useState<string | null>(null);
@@ -522,6 +523,12 @@ const App: React.FC = () => {
     setAddModalOpen(true);
   }, []);
 
+  // Handle Member Click - Navigate to Detail View
+  const handleMemberClick = useCallback((memberName: string) => {
+    setSelectedMemberName(memberName);
+    setRosterViewMode('detail');
+  }, []);
+
   // Refresh Single Character
   const refreshSingleCharacter = useCallback(async (characterName: string, realm: string, memberName: string, isMain: boolean) => {
     setIsUpdating(true);
@@ -902,9 +909,9 @@ const App: React.FC = () => {
                   <button onClick={() => setRosterViewMode('detail')} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${rosterViewMode === 'detail' ? 'bg-[#059669] text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}><User size={14} />DETAIL</button>
                 </div>
               </div>
-              {rosterViewMode === 'overview' && <RosterOverview roster={roster} minIlvl={minIlvl} onDeleteCharacter={handleDeleteCharacter} onAddCharacter={handleAddCharacter} />}
+              {rosterViewMode === 'overview' && <RosterOverview roster={roster} minIlvl={minIlvl} onDeleteCharacter={handleDeleteCharacter} onAddCharacter={handleAddCharacter} onMemberClick={handleMemberClick} />}
               {rosterViewMode === 'table' && <RosterTable roster={roster} minIlvl={minIlvl} />}
-              {rosterViewMode === 'detail' && <CharacterDetailView roster={roster} minIlvl={minIlvl} />}
+              {rosterViewMode === 'detail' && <CharacterDetailView roster={roster} minIlvl={minIlvl} initialMemberName={selectedMemberName} />}
             </div>
           )}
           {activeTab === 'audit' && <RosterAudit roster={roster} ilvlThresholds={ilvlThresholds} />}

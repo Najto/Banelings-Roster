@@ -8,6 +8,7 @@ interface RosterOverviewProps {
   minIlvl: number;
   onDeleteCharacter?: (characterName: string, realm: string) => Promise<void>;
   onAddCharacter?: (memberName: string, isMain: boolean) => void;
+  onMemberClick?: (memberName: string) => void;
 }
 
 const RoleIcon = ({ role }: { role: PlayerRole }) => {
@@ -107,7 +108,7 @@ const CharacterCell = ({
   );
 };
 
-export const RosterOverview: React.FC<RosterOverviewProps> = ({ roster, minIlvl, onDeleteCharacter, onAddCharacter }) => {
+export const RosterOverview: React.FC<RosterOverviewProps> = ({ roster, minIlvl, onDeleteCharacter, onAddCharacter, onMemberClick }) => {
   const groupedPlayers = useMemo(() => {
     const groups: Record<PlayerRole, Player[]> = {
       [PlayerRole.TANK]: [],
@@ -164,7 +165,10 @@ export const RosterOverview: React.FC<RosterOverviewProps> = ({ roster, minIlvl,
                 {groupedPlayers[role].map(player => (
                   <tr key={player.id} className="hover:bg-white/[0.02] transition-colors">
                     <td className="px-6 py-3 align-middle">
-                      <span className="text-[12px] font-black text-slate-300 uppercase tracking-tighter">
+                      <span
+                        onClick={() => onMemberClick?.(player.name)}
+                        className="text-[12px] font-black text-slate-300 uppercase tracking-tighter cursor-pointer hover:text-emerald-400 transition-colors"
+                      >
                         {player.name}
                       </span>
                     </td>

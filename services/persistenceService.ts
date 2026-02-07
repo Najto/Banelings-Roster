@@ -325,6 +325,27 @@ export const persistenceService = {
     }
   },
 
+  async getLastSyncTime(): Promise<Date | null> {
+    try {
+      const { data, error } = await supabase
+        .from('character_data')
+        .select('last_enriched_at')
+        .not('last_enriched_at', 'is', null)
+        .order('last_enriched_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (error || !data || !data.last_enriched_at) {
+        return null;
+      }
+
+      return new Date(data.last_enriched_at);
+    } catch (error) {
+      console.error('Failed to get last sync time:', error);
+      return null;
+    }
+  },
+
   // MIGRATION FUNCTIONS
   async checkMigrationNeeded(): Promise<{ needed: boolean; uniquePlayers: number; totalCharacters: number; existingMembers: number }> {
     try {

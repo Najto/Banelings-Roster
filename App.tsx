@@ -395,7 +395,7 @@ const App: React.FC = () => {
       }
 
       setRoster(enrichedRoster);
-      setLastUpdate(new Date().toLocaleTimeString());
+      await loadLastSyncTime();
     } catch (e) {
       console.error("Sync error:", e);
       setError("Synchronisierung fehlgeschlagen. Blizzard API Limit erreicht oder Verbindungsprobleme.");
@@ -403,6 +403,53 @@ const App: React.FC = () => {
       setIsUpdating(false);
     }
   }, []);
+
+  // Helper to format last sync time
+  const formatLastSyncTime = useCallback((date: Date | null): string => {
+    if (!date) return 'Never';
+
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    // If less than 1 hour ago, show relative time
+    if (diffMins < 60) {
+      return diffMins <= 1 ? 'Just now' : `${diffMins} min ago`;
+    }
+
+    // If less than 24 hours ago, show hours
+    if (diffHours < 24) {
+      return `${diffHours}h ago`;
+    }
+
+    // If less than 7 days ago, show days
+    if (diffDays < 7) {
+      return `${diffDays}d ago`;
+    }
+
+    // Otherwise show full date and time
+    return date.toLocaleString('de-DE', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  }, []);
+
+  // Load last sync time
+  const loadLastSyncTime = useCallback(async () => {
+    try {
+      const lastSync = await persistenceService.getLastSyncTime();
+      if (lastSync) {
+        setLastUpdate(formatLastSyncTime(lastSync));
+      }
+    } catch (e) {
+      console.error('Failed to load last sync time:', e);
+    }
+  }, [formatLastSyncTime]);
 
   // Initial Data Load - Load from Database
   useEffect(() => {
@@ -421,6 +468,9 @@ const App: React.FC = () => {
         if (migrationCheck.needed && !localStorage.getItem('migration_dismissed')) {
           setMigrationBanner({ show: true, count: migrationCheck.uniquePlayers });
         }
+
+        // Load last sync time
+        await loadLastSyncTime();
       } catch (e) {
         console.error('Failed to load initial data:', e);
       }
@@ -460,11 +510,11 @@ const App: React.FC = () => {
     try {
       const updatedRoster = await persistenceService.loadRosterFromDatabase();
       setRoster(updatedRoster);
-      setLastUpdate(new Date().toLocaleTimeString());
+      await loadLastSyncTime();
     } catch (e) {
       console.error('Failed to reload roster:', e);
     }
-  }, []);
+  }, [loadLastSyncTime]);
 
   // Add Character Handler
   const handleAddCharacter = useCallback((memberName: string, isMain: boolean) => {
@@ -721,7 +771,7 @@ const App: React.FC = () => {
       // Reload roster from database
       const updatedRoster = await persistenceService.loadRosterFromDatabase();
       setRoster(updatedRoster);
-      setLastUpdate(new Date().toLocaleTimeString());
+      await loadLastSyncTime();
     } catch (e) {
       console.error('Failed to refresh character:', e);
       setError('Failed to add and refresh character');

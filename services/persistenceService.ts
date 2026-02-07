@@ -563,7 +563,7 @@ export const persistenceService = {
         .not('last_enriched_at', 'is', null)
         .order('last_enriched_at', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (error || !data || !data.last_enriched_at) {
         return null;

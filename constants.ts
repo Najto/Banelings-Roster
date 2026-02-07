@@ -3,6 +3,7 @@ import { Player, WoWClass, PlayerRole } from './types';
 
 export const ILVL_WARNING_THRESHOLD = 615;
 export const WEEKLY_M_PLUS_GOAL = 8;
+export const WEEKLY_RAID_VAULT_GOAL = 6;
 
 export const INITIAL_ROSTER: Player[] = [
   {

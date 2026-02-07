@@ -41,6 +41,7 @@ import {
 interface SplitSetupProps {
   splits: SplitGroup[];
   roster: Player[];
+  minIlvl: number;
 }
 
 const BUFF_PROVIDERS: Record<string, WoWClass[]> = {
@@ -90,10 +91,11 @@ const ARMOR_DESCRIPTIONS: Record<string, string> = {
   "plate": "Warriors, Paladins, Death Knights"
 };
 
-const Tooltip = ({ content, children }: { content: string, children: React.ReactNode }) => {
+// Fix: Destructured key and added optional children to satisfy TypeScript when used in maps
+const Tooltip = ({ content, children, key }: { content: string, children?: React.ReactNode, key?: React.Key }) => {
   if (!content) return <>{children}</>;
   return (
-    <div className="group relative inline-block w-full">
+    <div key={key} className="group relative inline-block w-full">
       {children}
       <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-50">
         <div className="bg-[#050507] border border-white/10 text-slate-300 text-[10px] px-3 py-2 rounded-lg shadow-2xl w-48 text-center font-medium leading-relaxed">
@@ -121,7 +123,7 @@ const isSameCharacter = (c1: { name: string, isMain?: boolean, server?: string }
            (c1.server === c2.server || (!c1.server && !c2.server));
 };
 
-export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster }) => {
+export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl }) => {
   const [source, setSource] = useState<'sheet' | 'web'>('sheet');
   const [currentSplits, setCurrentSplits] = useState<SplitGroup[]>([]);
   const [editMember, setEditMember] = useState<{ memberName: string, groupIndex: number } | null>(null);
@@ -422,7 +424,7 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster }) => {
                                   </div>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                    <span className={`text-[10px] font-black px-1.5 py-0.5 rounded ${assignedChar.ilvl >= 630 ? 'text-indigo-400 bg-indigo-400/5' : 'text-slate-500 bg-black'}`}>
+                                    <span className={`text-[10px] font-black px-1.5 py-0.5 rounded ${assignedChar.ilvl >= minIlvl ? 'text-indigo-400 bg-indigo-400/5' : 'text-red-500 bg-red-500/10'}`}>
                                         {assignedChar.ilvl}
                                     </span>
                                     {source === 'web' && <Settings2 size={10} className="text-slate-700 opacity-0 group-hover:opacity-100" />}
@@ -505,10 +507,10 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster }) => {
 
                 <div className="bg-black/40 border border-white/5 rounded-xl p-4">
                   <h5 className="text-[9px] font-black uppercase tracking-widest text-slate-500 mb-4 flex items-center gap-2">
-                      <Info size={12} className="text-indigo-500" /> Key
+                      <Info size={12} className="text-indigo-500" /> Key Utility
                   </h5>
                   <div className="space-y-2">
-                    {group.utility.map((util, i) => {
+                    {group.utility.filter(u => u.name.toLowerCase() !== 'utility').map((util, i) => {
                       const providers = BUFF_PROVIDERS[util.name];
                       const isActive = group.players.some(p => providers?.includes(p.className));
                       const meta = BUFF_METADATA[util.name];

@@ -4,7 +4,7 @@ import { Player, Character, CLASS_COLORS, PlayerRole, GearItem } from '../types'
 import {
   Shield, Heart, Sword, Target, ChevronDown, ChevronUp, Check, X, Eye, EyeOff, Filter,
   Star, Gem, Zap, AlertCircle, Trophy, Box, Sparkles, BarChart, Wand2,
-  Compass, Users2, Award, Swords, Hexagon, Search, ClipboardCheck, TrendingUp
+  Compass, Users2, Award, Swords, Hexagon, Search, ClipboardCheck
 } from 'lucide-react';
 
 interface AuditProps {
@@ -108,8 +108,8 @@ export const Audit: React.FC<AuditProps> = ({ roster, minIlvl, isEnriched = fals
     { id: 'specificGear', label: 'Specific Gear', enabled: false, icon: Zap },
     { id: 'currencies', label: 'Currencies', enabled: false, icon: Gem, colorClass: 'text-amber-500' },
     { id: 'worldProgress', label: 'World Progress', enabled: false, icon: Compass, colorClass: 'text-emerald-500' },
-    { id: 'raidProgress', label: 'Raid & CE', enabled: false, icon: Award, colorClass: 'text-rose-500' },
-    { id: 'reputations', label: 'Reputations', enabled: false, icon: TrendingUp, colorClass: 'text-blue-400' },
+    { id: 'pvpAudit', label: 'PvP Audit', enabled: false, icon: Swords, colorClass: 'text-red-500' },
+    { id: 'raidProgress', label: 'Raid & CE', enabled: false, icon: Award },
     { id: 'collections', label: 'Collections', enabled: false, icon: Hexagon, colorClass: 'text-purple-400' }
   ]);
   const [showColumnMenu, setShowColumnMenu] = useState(false);
@@ -289,11 +289,11 @@ export const Audit: React.FC<AuditProps> = ({ roster, minIlvl, isEnriched = fals
       <div className="bg-gray-900 border border-white border-opacity-5 rounded-3xl shadow-2xl overflow-x-auto border-t-0">
         <table className="w-full border-collapse text-left">
           <thead>
-            <tr className="border-b border-white border-opacity-5">
-              <th rowSpan={2} className="py-2 px-3 text-xs font-black text-slate-600 uppercase tracking-wider text-left border-b border-white border-opacity-10">Player</th>
-              <th rowSpan={2} className="py-2 px-3 text-xs font-black text-slate-600 uppercase tracking-wider text-left border-b border-white border-opacity-10">Character</th>
-              <th rowSpan={2} className="py-2 px-3 text-xs font-black text-slate-600 uppercase tracking-wider text-center border-b border-white border-opacity-10">iLvl</th>
-              <th rowSpan={2} className="py-2 px-3 text-xs font-black text-slate-600 uppercase tracking-wider text-center border-b border-white border-opacity-10">M+</th>
+            <tr className="border-b border-white border-opacity-10">
+              <th className="py-2 px-3 text-xs font-black text-slate-600 uppercase tracking-wider text-left">Player</th>
+              <th className="py-2 px-3 text-xs font-black text-slate-600 uppercase tracking-wider text-left">Character</th>
+              <th className="py-2 px-3 text-xs font-black text-slate-600 uppercase tracking-wider text-center">iLvl</th>
+              <th className="py-2 px-3 text-xs font-black text-slate-600 uppercase tracking-wider text-center">M+</th>
 
               {isGroupEnabled('greatVault') && (
                 <>
@@ -309,186 +309,25 @@ export const Audit: React.FC<AuditProps> = ({ roster, minIlvl, isEnriched = fals
 
               {isGroupEnabled('gearStats') && (
                 <>
-                  <th colSpan={3} className="py-2 px-3 text-xs font-black text-purple-500 opacity-60 uppercase tracking-wider text-center border-l border-white border-opacity-5">Gear</th>
+                  <th colSpan={3} className="py-2 px-3 text-xs font-black text-slate-600 uppercase tracking-wider text-center border-l border-white border-opacity-5">Gear</th>
                 </>
               )}
 
               {isGroupEnabled('statDist') && (
                 <>
-                  <th colSpan={4} className="py-2 px-3 text-xs font-black text-blue-500 opacity-60 uppercase tracking-wider text-center border-l border-white border-opacity-5">Stats %</th>
+                  <th colSpan={4} className="py-2 px-3 text-xs font-black text-slate-600 uppercase tracking-wider text-center border-l border-white border-opacity-5">Stats %</th>
                 </>
               )}
 
               {isGroupEnabled('enchants') && (
                 <>
-                  <th colSpan={8} className="py-2 px-3 text-xs font-black text-emerald-500 opacity-60 uppercase tracking-wider text-center border-l border-white border-opacity-5">Enchants</th>
+                  <th colSpan={8} className="py-2 px-3 text-xs font-black text-slate-600 uppercase tracking-wider text-center border-l border-white border-opacity-5">Enchants</th>
                 </>
               )}
 
               {isGroupEnabled('slotAudit') && (
                 <>
-                  <th colSpan={SLOT_ORDER.length} className="py-2 px-3 text-xs font-black text-rose-500 opacity-60 uppercase tracking-wider text-center border-l border-white border-opacity-5">Slots</th>
-                </>
-              )}
-
-              {isGroupEnabled('specificGear') && (
-                <>
-                  <th colSpan={2} className="py-2 px-3 text-xs font-black text-pink-500 opacity-60 uppercase tracking-wider text-center border-l border-white border-opacity-5">Embellishments</th>
-                </>
-              )}
-
-              {isGroupEnabled('currencies') && (
-                <>
-                  <th colSpan={5} className="py-2 px-3 text-xs font-black text-amber-500 opacity-60 uppercase tracking-wider text-center border-l border-white border-opacity-5">Currencies</th>
-                </>
-              )}
-
-              {isGroupEnabled('worldProgress') && (
-                <>
-                  <th colSpan={10} className="py-2 px-3 text-xs font-black text-emerald-500 opacity-60 uppercase tracking-wider text-center border-l border-white border-opacity-5">World Progress</th>
-                </>
-              )}
-
-              {isGroupEnabled('raidProgress') && (
-                <>
-                  <th colSpan={6} className="py-2 px-3 text-xs font-black text-rose-500 opacity-60 uppercase tracking-wider text-center border-l border-white border-opacity-5">Raid & CE</th>
-                </>
-              )}
-
-              {isGroupEnabled('reputations') && (
-                <>
-                  <th colSpan={7} className="py-2 px-3 text-xs font-black text-blue-400 opacity-60 uppercase tracking-wider text-center border-l border-white border-opacity-5">Reputations</th>
-                </>
-              )}
-
-              {isGroupEnabled('collections') && (
-                <>
-                  <th colSpan={5} className="py-2 px-3 text-xs font-black text-purple-400 opacity-60 uppercase tracking-wider text-center border-l border-white border-opacity-5">Collections</th>
-                </>
-              )}
-            </tr>
-
-            <tr className="border-b border-white border-opacity-10">
-              {isGroupEnabled('greatVault') && (
-                <>
-                  <th className="py-1 px-2 text-[10px] font-bold text-amber-400 opacity-50 uppercase tracking-wider text-center border-l border-white border-opacity-5">R1</th>
-                  <th className="py-1 px-2 text-[10px] font-bold text-amber-400 opacity-50 uppercase tracking-wider text-center">R2</th>
-                  <th className="py-1 px-2 text-[10px] font-bold text-amber-400 opacity-50 uppercase tracking-wider text-center">R3</th>
-                  <th className="py-1 px-2 text-[10px] font-bold text-blue-400 opacity-50 uppercase tracking-wider text-center">D1</th>
-                  <th className="py-1 px-2 text-[10px] font-bold text-blue-400 opacity-50 uppercase tracking-wider text-center">D4</th>
-                  <th className="py-1 px-2 text-[10px] font-bold text-blue-400 opacity-50 uppercase tracking-wider text-center">D8</th>
-                  <th className="py-1 px-2 text-[10px] font-bold text-emerald-400 opacity-50 uppercase tracking-wider text-center">W1</th>
-                  <th className="py-1 px-2 text-[10px] font-bold text-emerald-400 opacity-50 uppercase tracking-wider text-center">W2</th>
-                  <th className="py-1 px-2 text-[10px] font-bold text-emerald-400 opacity-50 uppercase tracking-wider text-center">W3</th>
-                </>
-              )}
-
-              {isGroupEnabled('trackDist') && (
-                <>
-                  <th className="py-1 px-2 text-[10px] font-bold text-purple-400 opacity-50 uppercase tracking-wider text-center border-l border-white border-opacity-5">M</th>
-                  <th className="py-1 px-2 text-[10px] font-bold text-blue-400 opacity-50 uppercase tracking-wider text-center">H</th>
-                  <th className="py-1 px-2 text-[10px] font-bold text-emerald-400 opacity-50 uppercase tracking-wider text-center">C</th>
-                  <th className="py-1 px-2 text-[10px] font-bold text-amber-400 opacity-50 uppercase tracking-wider text-center">V</th>
-                  <th className="py-1 px-2 text-[10px] font-bold text-slate-400 opacity-50 uppercase tracking-wider text-center">A</th>
-                  <th className="py-1 px-2 text-[10px] font-bold text-slate-600 opacity-50 uppercase tracking-wider text-center">E</th>
-                </>
-              )}
-
-              {isGroupEnabled('gearStats') && (
-                <>
-                  <th className="py-1 px-2 text-[10px] font-bold text-slate-500 opacity-50 uppercase tracking-wider text-center border-l border-white border-opacity-5">Tier</th>
-                  <th className="py-1 px-2 text-[10px] font-bold text-slate-500 opacity-50 uppercase tracking-wider text-center">Ench</th>
-                  <th className="py-1 px-2 text-[10px] font-bold text-slate-500 opacity-50 uppercase tracking-wider text-center">Gems</th>
-                </>
-              )}
-
-              {isGroupEnabled('statDist') && (
-                <>
-                  <th className="py-1 px-2 text-[10px] font-bold text-slate-500 opacity-50 uppercase tracking-wider text-center border-l border-white border-opacity-5">Crit</th>
-                  <th className="py-1 px-2 text-[10px] font-bold text-slate-500 opacity-50 uppercase tracking-wider text-center">Haste</th>
-                  <th className="py-1 px-2 text-[10px] font-bold text-slate-500 opacity-50 uppercase tracking-wider text-center">Mast</th>
-                  <th className="py-1 px-2 text-[10px] font-bold text-slate-500 opacity-50 uppercase tracking-wider text-center">Vers</th>
-                </>
-              )}
-
-              {isGroupEnabled('enchants') && (
-                <>
-                  {ENCHANTABLE_SLOTS.map(slot => (
-                    <th key={slot} className="py-1 px-2 text-[10px] font-bold text-slate-500 opacity-50 uppercase tracking-wider text-center border-l border-white border-opacity-5">{slot.substring(0, 4)}</th>
-                  ))}
-                </>
-              )}
-
-              {isGroupEnabled('slotAudit') && (
-                <>
-                  {SLOT_ORDER.map(slot => (
-                    <th key={slot} className="py-1 px-2 text-[10px] font-bold text-slate-500 opacity-50 uppercase tracking-wider text-center border-l border-white border-opacity-5">{slot.substring(0, 4)}</th>
-                  ))}
-                </>
-              )}
-
-              {isGroupEnabled('specificGear') && (
-                <>
-                  <th className="py-1 px-2 text-[10px] font-bold text-slate-500 opacity-50 uppercase tracking-wider text-center border-l border-white border-opacity-5">Emb1</th>
-                  <th className="py-1 px-2 text-[10px] font-bold text-slate-500 opacity-50 uppercase tracking-wider text-center">Emb2</th>
-                </>
-              )}
-
-              {isGroupEnabled('currencies') && (
-                <>
-                  <th className="py-1 px-2 text-[10px] font-bold text-slate-500 opacity-50 uppercase tracking-wider text-center border-l border-white border-opacity-5">Weat</th>
-                  <th className="py-1 px-2 text-[10px] font-bold text-slate-500 opacity-50 uppercase tracking-wider text-center">Carv</th>
-                  <th className="py-1 px-2 text-[10px] font-bold text-slate-500 opacity-50 uppercase tracking-wider text-center">Rune</th>
-                  <th className="py-1 px-2 text-[10px] font-bold text-slate-500 opacity-50 uppercase tracking-wider text-center">Gild</th>
-                  <th className="py-1 px-2 text-[10px] font-bold text-slate-500 opacity-50 uppercase tracking-wider text-center">Valo</th>
-                </>
-              )}
-
-              {isGroupEnabled('worldProgress') && (
-                <>
-                  <th className="py-1 px-2 text-[10px] font-bold text-slate-500 opacity-50 uppercase tracking-wider text-center border-l border-white border-opacity-5">WQs</th>
-                  <th className="py-1 px-2 text-[10px] font-bold text-slate-500 opacity-50 uppercase tracking-wider text-center">Thea</th>
-                  <th className="py-1 px-2 text-[10px] font-bold text-slate-500 opacity-50 uppercase tracking-wider text-center">Awak</th>
-                  <th className="py-1 px-2 text-[10px] font-bold text-slate-500 opacity-50 uppercase tracking-wider text-center">Sev</th>
-                  <th className="py-1 px-2 text-[10px] font-bold text-slate-500 opacity-50 uppercase tracking-wider text-center">Mem</th>
-                  <th className="py-1 px-2 text-[10px] font-bold text-slate-500 opacity-50 uppercase tracking-wider text-center">Delv</th>
-                  <th className="py-1 px-2 text-[10px] font-bold text-slate-500 opacity-50 uppercase tracking-wider text-center">Keys</th>
-                  <th className="py-1 px-2 text-[10px] font-bold text-slate-500 opacity-50 uppercase tracking-wider text-center">HrD</th>
-                  <th className="py-1 px-2 text-[10px] font-bold text-slate-500 opacity-50 uppercase tracking-wider text-center">MthD</th>
-                  <th className="py-1 px-2 text-[10px] font-bold text-slate-500 opacity-50 uppercase tracking-wider text-center">Prof</th>
-                </>
-              )}
-
-              {isGroupEnabled('raidProgress') && (
-                <>
-                  <th className="py-1 px-2 text-[10px] font-bold text-slate-500 opacity-50 uppercase tracking-wider text-center border-l border-white border-opacity-5">Bos</th>
-                  <th className="py-1 px-2 text-[10px] font-bold text-slate-500 opacity-50 uppercase tracking-wider text-center">Week</th>
-                  <th className="py-1 px-2 text-[10px] font-bold text-slate-500 opacity-50 uppercase tracking-wider text-center">Comp</th>
-                  <th className="py-1 px-2 text-[10px] font-bold text-slate-500 opacity-50 uppercase tracking-wider text-center">Rank</th>
-                  <th className="py-1 px-2 text-[10px] font-bold text-slate-500 opacity-50 uppercase tracking-wider text-center">CE</th>
-                  <th className="py-1 px-2 text-[10px] font-bold text-slate-500 opacity-50 uppercase tracking-wider text-center">AotC</th>
-                </>
-              )}
-
-              {isGroupEnabled('reputations') && (
-                <>
-                  <th className="py-1 px-2 text-[10px] font-bold text-slate-500 opacity-50 uppercase tracking-wider text-center border-l border-white border-opacity-5">C.P.</th>
-                  <th className="py-1 px-2 text-[10px] font-bold text-slate-500 opacity-50 uppercase tracking-wider text-center">Wvrs</th>
-                  <th className="py-1 px-2 text-[10px] font-bold text-slate-500 opacity-50 uppercase tracking-wider text-center">Asse</th>
-                  <th className="py-1 px-2 text-[10px] font-bold text-slate-500 opacity-50 uppercase tracking-wider text-center">Hllw</th>
-                  <th className="py-1 px-2 text-[10px] font-bold text-slate-500 opacity-50 uppercase tracking-wider text-center">Bros</th>
-                  <th className="py-1 px-2 text-[10px] font-bold text-slate-500 opacity-50 uppercase tracking-wider text-center">Gene</th>
-                  <th className="py-1 px-2 text-[10px] font-bold text-slate-500 opacity-50 uppercase tracking-wider text-center">Seve</th>
-                </>
-              )}
-
-              {isGroupEnabled('collections') && (
-                <>
-                  <th className="py-1 px-2 text-[10px] font-bold text-slate-500 opacity-50 uppercase tracking-wider text-center border-l border-white border-opacity-5">Mnts</th>
-                  <th className="py-1 px-2 text-[10px] font-bold text-slate-500 opacity-50 uppercase tracking-wider text-center">Pets</th>
-                  <th className="py-1 px-2 text-[10px] font-bold text-slate-500 opacity-50 uppercase tracking-wider text-center">Toys</th>
-                  <th className="py-1 px-2 text-[10px] font-bold text-slate-500 opacity-50 uppercase tracking-wider text-center">Achi</th>
-                  <th className="py-1 px-2 text-[10px] font-bold text-slate-500 opacity-50 uppercase tracking-wider text-center">Titl</th>
+                  <th colSpan={SLOT_ORDER.length} className="py-2 px-3 text-xs font-black text-slate-600 uppercase tracking-wider text-center border-l border-white border-opacity-5">Slots</th>
                 </>
               )}
             </tr>
@@ -621,127 +460,6 @@ export const Audit: React.FC<AuditProps> = ({ roster, minIlvl, isEnriched = fals
                       </td>
                     );
                   })}
-
-                  {isGroupEnabled('specificGear') && (
-                    <>
-                      <td className="py-2 px-2 text-center text-xs border-l border-white border-opacity-5">
-                        <span className="text-pink-400 font-bold truncate max-w-[60px] block" title={char.embellishments?.[0] || '-'}>{char.embellishments?.[0] ? char.embellishments[0].substring(0, 8) : '-'}</span>
-                      </td>
-                      <td className="py-2 px-2 text-center text-xs">
-                        <span className="text-pink-400 font-bold truncate max-w-[60px] block" title={char.embellishments?.[1] || '-'}>{char.embellishments?.[1] ? char.embellishments[1].substring(0, 8) : '-'}</span>
-                      </td>
-                    </>
-                  )}
-
-                  {isGroupEnabled('currencies') && (
-                    <>
-                      <td className="py-2 px-2 text-center text-xs border-l border-white border-opacity-5">
-                        <span className="text-slate-400 font-bold">{char.crests?.weathered || 0}</span>
-                      </td>
-                      <td className="py-2 px-2 text-center text-xs">
-                        <span className="text-emerald-400 font-bold">{char.crests?.carved || 0}</span>
-                      </td>
-                      <td className="py-2 px-2 text-center text-xs">
-                        <span className="text-blue-400 font-bold">{char.crests?.runed || 0}</span>
-                      </td>
-                      <td className="py-2 px-2 text-center text-xs">
-                        <span className="text-amber-400 font-bold">{char.crests?.gilded || 0}</span>
-                      </td>
-                      <td className="py-2 px-2 text-center text-xs">
-                        <span className="text-purple-400 font-bold">{char.valorstones || 0}</span>
-                      </td>
-                    </>
-                  )}
-
-                  {isGroupEnabled('worldProgress') && (
-                    <>
-                      <td className="py-2 px-2 text-center text-xs border-l border-white border-opacity-5">
-                        <span className="text-slate-400">{char.worldProgress?.worldQuestsDone || 0}</span>
-                      </td>
-                      <td className="py-2 px-2 text-center text-xs">
-                        <span className="text-slate-400">{char.worldProgress?.theaterTroupe || '-'}</span>
-                      </td>
-                      <td className="py-2 px-2 text-center text-xs">
-                        <span className="text-slate-400">{char.worldProgress?.awakeningTheMachine || '-'}</span>
-                      </td>
-                      <td className="py-2 px-2 text-center text-xs">
-                        <span className="text-slate-400">{char.worldProgress?.severedThreads || '-'}</span>
-                      </td>
-                      <td className="py-2 px-2 text-center text-xs">
-                        <span className="text-slate-400">{char.worldProgress?.remembranceProgress || '-'}</span>
-                      </td>
-                      <td className="py-2 px-2 text-center text-xs">
-                        <span className="text-slate-400">{char.worldProgress?.delvesDone || '-'}</span>
-                      </td>
-                      <td className="py-2 px-2 text-center text-xs">
-                        <span className="text-slate-400">{char.worldProgress?.cofferKeys || '-'}</span>
-                      </td>
-                      <td className="py-2 px-2 text-center text-xs">
-                        <span className="text-slate-400">{char.worldProgress?.heroicDungeons || '-'}</span>
-                      </td>
-                      <td className="py-2 px-2 text-center text-xs">
-                        <span className="text-slate-400">{char.worldProgress?.mythicDungeons || '-'}</span>
-                      </td>
-                      <td className="py-2 px-2 text-center text-xs">
-                        <span className="text-slate-400">{char.professions?.length || 0}</span>
-                      </td>
-                    </>
-                  )}
-
-                  {isGroupEnabled('raidProgress') && (
-                    <>
-                      <td className="py-2 px-2 text-center text-xs border-l border-white border-opacity-5">
-                        <span className="text-slate-400 font-bold">{char.raidProgress?.[0]?.mythicKills || 0}/{char.raidProgress?.[0]?.totalBosses || 8}</span>
-                      </td>
-                      <td className="py-2 px-2 text-center text-xs">
-                        <span className="text-slate-400">{char.raidProgress?.[0]?.mythicKills || '-'}</span>
-                      </td>
-                      <td className="py-2 px-2 text-center text-xs">
-                        <span className="text-slate-400">{char.raidProgress?.[0]?.completions || '-'}</span>
-                      </td>
-                      <td className="py-2 px-2 text-center text-xs">
-                        <span className="text-slate-400">{char.raidProgress?.[0]?.worldRank || '-'}</span>
-                      </td>
-                      <td className="py-2 px-2 text-center text-xs">
-                        {char.raidAchievements?.cuttingEdge ? <Check size={10} className="text-purple-400 mx-auto" /> : <X size={10} className="text-slate-700 mx-auto" />}
-                      </td>
-                      <td className="py-2 px-2 text-center text-xs">
-                        {char.raidAchievements?.aheadOfTheCurve ? <Check size={10} className="text-blue-400 mx-auto" /> : <X size={10} className="text-slate-700 mx-auto" />}
-                      </td>
-                    </>
-                  )}
-
-                  {isGroupEnabled('reputations') && (
-                    <>
-                      {[0, 1, 2, 3, 4, 5, 6].map(i => (
-                        <td key={`rep${i}`} className="py-2 px-2 text-center text-xs border-l border-white border-opacity-5">
-                          <span className={char.reputations?.[i] ? 'text-blue-400 font-bold' : 'text-slate-700'}>
-                            {char.reputations?.[i] ? Math.round((char.reputations[i].standing / char.reputations[i].max) * 100) : '-'}
-                          </span>
-                        </td>
-                      ))}
-                    </>
-                  )}
-
-                  {isGroupEnabled('collections') && (
-                    <>
-                      <td className="py-2 px-2 text-center text-xs border-l border-white border-opacity-5">
-                        <span className="text-purple-400 font-bold">{char.collections?.mounts || 0}</span>
-                      </td>
-                      <td className="py-2 px-2 text-center text-xs">
-                        <span className="text-cyan-400 font-bold">{char.collections?.pets || 0}</span>
-                      </td>
-                      <td className="py-2 px-2 text-center text-xs">
-                        <span className="text-pink-400 font-bold">{char.collections?.toys || 0}</span>
-                      </td>
-                      <td className="py-2 px-2 text-center text-xs">
-                        <span className="text-amber-400 font-bold">{char.collections?.achievements || 0}</span>
-                      </td>
-                      <td className="py-2 px-2 text-center text-xs">
-                        <span className="text-emerald-400 font-bold">{char.collections?.titles || 0}</span>
-                      </td>
-                    </>
-                  )}
                 </tr>
               );
             })}

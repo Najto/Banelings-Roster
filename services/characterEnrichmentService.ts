@@ -9,18 +9,6 @@ const normalizeRealm = (realm: string): string => {
   return realm.toLowerCase().replace(/\s+/g, '-').replace(/'/g, '');
 };
 
-const isCharacterStale = (character: Character, maxAgeMinutes: number = 60): boolean => {
-  if (!character.lastEnrichedAt) {
-    return true;
-  }
-
-  const lastEnriched = new Date(character.lastEnrichedAt);
-  const now = new Date();
-  const ageMinutes = (now.getTime() - lastEnriched.getTime()) / (1000 * 60);
-
-  return ageMinutes >= maxAgeMinutes;
-};
-
 export interface EnrichmentProgress {
   total: number;
   processed: number;
@@ -160,9 +148,7 @@ export const enrichRosterWithDatabase = async (
       const cacheKey = `${player.mainCharacter.name}-${normalizedRealm}`;
       const cachedChar = cachedData.get(cacheKey);
 
-      const shouldRefresh = !cachedChar || isCharacterStale(cachedChar);
-
-      if (cachedChar && !shouldRefresh) {
+      if (cachedChar) {
         enrichedPlayer.mainCharacter = { ...player.mainCharacter, ...cachedChar };
         progress.skipped++;
       } else {
@@ -214,9 +200,7 @@ export const enrichRosterWithDatabase = async (
         const cacheKey = `${split.name}-${normalizedRealm}`;
         const cachedChar = cachedData.get(cacheKey);
 
-        const shouldRefresh = !cachedChar || isCharacterStale(cachedChar);
-
-        if (cachedChar && !shouldRefresh) {
+        if (cachedChar) {
           enrichedSplits.push({ ...split, ...cachedChar });
           progress.skipped++;
         } else {

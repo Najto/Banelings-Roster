@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { SplitGroup, HelperCharacter, PlayerRole, CLASS_COLORS, ROLE_PRIORITY, WoWClass, Player, Character } from '../types';
+import { SplitGroup, HelperCharacter, PlayerRole, CLASS_COLORS, ROLE_PRIORITY, WoWClass, Player, Character, VersionKey, VERSION_LABELS } from '../types';
 import { persistenceService } from '../services/persistenceService';
 import { 
   Shield, 
@@ -127,13 +127,16 @@ const isSameCharacter = (c1: { name: string, isMain?: boolean, server?: string }
 };
 
 export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl }) => {
-  const [source, setSource] = useState<'sheet' | 'web'>('web');
+  const [currentVersion, setCurrentVersion] = useState<VersionKey>('main');
   const [currentSplits, setCurrentSplits] = useState<SplitGroup[]>([]);
   const [editMember, setEditMember] = useState<{ memberName: string, groupIndex: number } | null>(null);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'synced' | 'error'>('idle');
   const [addingHelperToGroup, setAddingHelperToGroup] = useState<number | null>(null);
   const [helperName, setHelperName] = useState('');
   const [helperClass, setHelperClass] = useState<WoWClass>(WoWClass.WARRIOR);
+  const [showCopyDialog, setShowCopyDialog] = useState(false);
+  const [copyFrom, setCopyFrom] = useState<VersionKey>('main');
+  const [copyTo, setCopyTo] = useState<VersionKey>('alt1');
 
   const resolveSplits = useCallback((baseSplits: SplitGroup[]) => {
     return baseSplits.map(group => ({
@@ -162,32 +165,44 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
 
   useEffect(() => {
     const initSource = async () => {
-      if (source === 'sheet') {
-        setCurrentSplits(resolveSplits(splits));
-        setSyncStatus('idle');
+      setSyncStatus('syncing');
+      const remoteData = await persistenceService.loadSplits(currentVersion);
+      if (remoteData) {
+        setCurrentSplits(resolveSplits(remoteData));
+        setSyncStatus('synced');
       } else {
-        setSyncStatus('syncing');
-        const remoteData = await persistenceService.loadSplits();
-        if (remoteData) {
-          setCurrentSplits(resolveSplits(remoteData));
-          setSyncStatus('synced');
-        } else {
-          // If no cloud data yet, initialize with sheet data but stay in web mode
-          const base = resolveSplits(splits);
-          setCurrentSplits(base);
-          setSyncStatus('idle');
-        }
+        const base = resolveSplits(splits);
+        setCurrentSplits(base);
+        setSyncStatus('idle');
       }
     };
     initSource();
-  }, [source, splits, resolveSplits]);
+  }, [currentVersion, splits, resolveSplits]);
 
   const saveWebSplits = async (newSplits: SplitGroup[]) => {
     setCurrentSplits(newSplits);
-    if (source === 'web') {
-      setSyncStatus('syncing');
-      const success = await persistenceService.saveSplits(newSplits);
-      setSyncStatus(success ? 'synced' : 'error');
+    setSyncStatus('syncing');
+    const success = await persistenceService.saveSplits(newSplits, currentVersion);
+    setSyncStatus(success ? 'synced' : 'error');
+  };
+
+  const handleCopyVersion = async () => {
+    if (copyFrom === copyTo) {
+      alert('Source and destination must be different.');
+      return;
+    }
+    const confirmed = confirm(`Copy ${VERSION_LABELS[copyFrom]} to ${VERSION_LABELS[copyTo]}? This will overwrite the destination.`);
+    if (!confirmed) return;
+
+    setSyncStatus('syncing');
+    const success = await persistenceService.copySplits(copyFrom, copyTo);
+    if (success) {
+      setShowCopyDialog(false);
+      setCurrentVersion(copyTo);
+      setSyncStatus('synced');
+    } else {
+      alert('Failed to copy version');
+      setSyncStatus('error');
     }
   };
 
@@ -213,7 +228,6 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
   };
 
   const handleDragStart = (e: React.DragEvent, playerName: string, charName: string, isMain: boolean, server: string | undefined, fromGroupIdx: number) => {
-    if (source === 'sheet') return;
     e.dataTransfer.setData('playerName', playerName);
     e.dataTransfer.setData('charName', charName);
     e.dataTransfer.setData('isMain', isMain.toString());
@@ -222,7 +236,6 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
   };
 
   const handleDrop = (e: React.DragEvent, toGroupIdx: number) => {
-    if (source === 'sheet') return;
     const dragType = e.dataTransfer.getData('dragType');
     const fromGroupIdx = parseInt(e.dataTransfer.getData('fromGroupIdx'));
 
@@ -316,7 +329,6 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
   };
 
   const handleHelperDragStart = (e: React.DragEvent, helperIdx: number, helper: HelperCharacter, fromGroupIdx: number) => {
-    if (source === 'sheet') return;
     e.dataTransfer.setData('dragType', 'helper');
     e.dataTransfer.setData('helperIdx', helperIdx.toString());
     e.dataTransfer.setData('helperName', helper.name);
@@ -349,81 +361,96 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
     <div className="space-y-6">
       {/* Shared Header & Toggles */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between bg-[#0c0c0e]/50 p-3 rounded-2xl border border-white/5 gap-4 shadow-xl">
-        <div className="flex p-1 bg-black rounded-xl border border-white/5">
-          <button 
-            onClick={() => setSource('sheet')}
-            className={`flex items-center gap-2 px-5 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${source === 'sheet' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'text-slate-500 hover:text-slate-300'}`}
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="flex flex-wrap p-1 bg-black rounded-xl border border-white/5 gap-1">
+            <button
+              onClick={() => setCurrentVersion('main')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${currentVersion === 'main' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-slate-500 hover:text-slate-300'}`}
+            >
+              <Globe size={14} />
+              Main Setup
+            </button>
+            <button
+              onClick={() => setCurrentVersion('alt1')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${currentVersion === 'alt1' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/20' : 'text-slate-500 hover:text-slate-300'}`}
+            >
+              <Globe size={14} />
+              Alternative Setup1
+            </button>
+            <button
+              onClick={() => setCurrentVersion('alt2')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${currentVersion === 'alt2' ? 'bg-orange-600 text-white shadow-lg shadow-orange-600/20' : 'text-slate-500 hover:text-slate-300'}`}
+            >
+              <Globe size={14} />
+              Alternative Setup2
+            </button>
+            <button
+              onClick={() => setCurrentVersion('alt3')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${currentVersion === 'alt3' ? 'bg-pink-600 text-white shadow-lg shadow-pink-600/20' : 'text-slate-500 hover:text-slate-300'}`}
+            >
+              <Globe size={14} />
+              Alternative Setup3
+            </button>
+          </div>
+
+          <button
+            onClick={() => setShowCopyDialog(true)}
+            className="flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/5 text-slate-400 hover:text-white hover:border-white/10 transition-all"
           >
-            <FileSpreadsheet size={14} />
-            Sheet Version
-          </button>
-          <button 
-            onClick={() => setSource('web')}
-            className={`flex items-center gap-2 px-5 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${source === 'web' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/20' : 'text-slate-500 hover:text-slate-300'}`}
-          >
-            <Globe size={14} />
-            Shared Web Version
+            <Share2 size={14} />
+            <span className="text-[10px] font-black uppercase tracking-widest">Copy Setup</span>
           </button>
         </div>
-        
+
         <div className="flex items-center gap-6 px-4">
-            {source === 'web' && (
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2">
-                  {syncStatus === 'syncing' ? (
-                    <div className="flex items-center gap-2 text-indigo-400 animate-pulse">
-                      <Loader2 size={12} className="animate-spin" />
-                      <span className="text-[9px] font-black uppercase tracking-widest">Shared Cloud Syncing...</span>
-                    </div>
-                  ) : syncStatus === 'synced' ? (
-                    <div className="flex items-center gap-2 text-emerald-500">
-                      <Cloud size={12} />
-                      <span className="text-[9px] font-black uppercase tracking-widest">Cloud Synced</span>
-                    </div>
-                  ) : syncStatus === 'error' ? (
-                    <div className="flex items-center gap-2 text-red-500">
-                      <CloudOff size={12} />
-                      <span className="text-[9px] font-black uppercase tracking-widest">Cloud Error</span>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2 text-slate-600">
-                      <Cloud size={12} />
-                      <span className="text-[9px] font-black uppercase tracking-widest">Local Session</span>
-                    </div>
-                  )}
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              {syncStatus === 'syncing' ? (
+                <div className="flex items-center gap-2 text-indigo-400 animate-pulse">
+                  <Loader2 size={12} className="animate-spin" />
+                  <span className="text-[9px] font-black uppercase tracking-widest">{VERSION_LABELS[currentVersion]} - Syncing...</span>
                 </div>
-                
-                <div className="h-4 w-px bg-white/10" />
-                
-                <button
-                  onClick={async () => {
-                    const pw = prompt("Enter admin password to reset cloud:");
-                    if (pw !== 'admin1337') {
-                      if (pw !== null) alert("Incorrect password.");
-                      return;
-                    }
-                    const existingHelpers = currentSplits.map(g => g.helpers || []);
-                    const base = resolveSplits(splits).map((g, i) => ({
-                      ...g,
-                      helpers: existingHelpers[i] || []
-                    }));
-                    await saveWebSplits(base);
-                  }}
-                  className="group flex items-center gap-2 text-slate-600 hover:text-red-400 transition-colors"
-                  title="Overwrite Cloud with Spreadsheet Data"
-                >
-                  <RefreshCw size={12} className="group-hover:rotate-180 transition-transform duration-500" />
-                  <span className="text-[9px] font-black uppercase tracking-widest">Reset Cloud</span>
-                </button>
-              </div>
-            )}
-            
-            {source === 'sheet' && (
-              <div className="flex items-center gap-2 text-slate-600 font-bold uppercase tracking-widest italic text-[9px]">
-                <Share2 size={12} />
-                Syncing directly from Spreadsheet
-              </div>
-            )}
+              ) : syncStatus === 'synced' ? (
+                <div className="flex items-center gap-2 text-emerald-500">
+                  <Cloud size={12} />
+                  <span className="text-[9px] font-black uppercase tracking-widest">{VERSION_LABELS[currentVersion]} - Cloud Synced</span>
+                </div>
+              ) : syncStatus === 'error' ? (
+                <div className="flex items-center gap-2 text-red-500">
+                  <CloudOff size={12} />
+                  <span className="text-[9px] font-black uppercase tracking-widest">Cloud Error</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 text-slate-600">
+                  <Cloud size={12} />
+                  <span className="text-[9px] font-black uppercase tracking-widest">{VERSION_LABELS[currentVersion]} - Local Session</span>
+                </div>
+              )}
+            </div>
+
+            <div className="h-4 w-px bg-white/10" />
+
+            <button
+              onClick={async () => {
+                const pw = prompt("Enter admin password to reset cloud:");
+                if (pw !== 'admin1337') {
+                  if (pw !== null) alert("Incorrect password.");
+                  return;
+                }
+                const existingHelpers = currentSplits.map(g => g.helpers || []);
+                const base = resolveSplits(splits).map((g, i) => ({
+                  ...g,
+                  helpers: existingHelpers[i] || []
+                }));
+                await saveWebSplits(base);
+              }}
+              className="group flex items-center gap-2 text-slate-600 hover:text-red-400 transition-colors"
+              title="Overwrite Cloud with Spreadsheet Data"
+            >
+              <RefreshCw size={12} className="group-hover:rotate-180 transition-transform duration-500" />
+              <span className="text-[9px] font-black uppercase tracking-widest">Reset Cloud</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -468,10 +495,10 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
                             return (
                               <div
                                 key={member.id}
-                                draggable={source === 'web'}
+                                draggable={true}
                                 onDragStart={(e) => handleDragStart(e, member.name, assignedChar.name, assignedChar.isMain, assignedChar.server, groupIdx)}
-                                onClick={() => source === 'web' && setEditMember({ memberName: member.name, groupIndex: groupIdx })}
-                                className={`flex items-center justify-between p-2.5 rounded-xl bg-white/[0.02] border border-white/5 hover:border-white/10 transition-all group ${source === 'web' ? 'cursor-grab active:cursor-grabbing hover:bg-white/[0.04]' : ''}`}
+                                onClick={() => setEditMember({ memberName: member.name, groupIndex: groupIdx })}
+                                className={`flex items-center justify-between p-2.5 rounded-xl bg-white/[0.02] border border-white/5 hover:border-white/10 transition-all group cursor-grab active:cursor-grabbing hover:bg-white/[0.04]`}
                               >
                                 <div className="flex items-center gap-3">
                                   <div className="flex flex-col">
@@ -488,11 +515,11 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
                                     <span className={`text-[11px] font-black px-1.5 py-0.5 rounded ${assignedChar.ilvl >= minIlvl ? 'text-indigo-400 bg-indigo-400/5' : 'text-red-500 bg-red-500/10'}`}>
                                         {assignedChar.ilvl}
                                     </span>
-                                    {source === 'web' && <Settings2 size={10} className="text-slate-700 opacity-0 group-hover:opacity-100" />}
+                                    <Settings2 size={10} className="text-slate-700 opacity-0 group-hover:opacity-100" />
                                 </div>
                               </div>
                             );
-                          } else if (source === 'web') {
+                          } else {
                             return (
                               <div
                                 key={member.id}
@@ -514,7 +541,6 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
                               </div>
                             );
                           }
-                          return null;
                         })}
                       </div>
                     </div>
@@ -531,29 +557,27 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
                     {(group.helpers || []).map((helper, hIdx) => (
                       <div
                         key={`helper-${hIdx}`}
-                        draggable={source === 'web'}
+                        draggable={true}
                         onDragStart={(e) => handleHelperDragStart(e, hIdx, helper, groupIdx)}
-                        className={`flex items-center justify-between p-2.5 rounded-xl bg-amber-500/[0.03] border border-amber-500/10 hover:border-amber-500/20 transition-all group ${source === 'web' ? 'cursor-grab active:cursor-grabbing hover:bg-amber-500/[0.06]' : ''}`}
+                        className={`flex items-center justify-between p-2.5 rounded-xl bg-amber-500/[0.03] border border-amber-500/10 hover:border-amber-500/20 transition-all group cursor-grab active:cursor-grabbing hover:bg-amber-500/[0.06]`}
                       >
                         <div className="flex items-center gap-3">
-                          {source === 'web' && <GripVertical size={12} className="text-slate-700 opacity-0 group-hover:opacity-100 transition-opacity" />}
+                          <GripVertical size={12} className="text-slate-700 opacity-0 group-hover:opacity-100 transition-opacity" />
                           <div className="flex flex-col">
                             <span className="text-xs font-black truncate" style={{ color: CLASS_COLORS[helper.className] }}>{helper.name}</span>
                             <span className="text-[8px] font-bold uppercase px-1 rounded bg-amber-500/10 text-amber-500 w-fit">Helper</span>
                           </div>
                         </div>
-                        {source === 'web' && (
-                          <button
-                            onClick={(e) => { e.stopPropagation(); removeHelper(groupIdx, hIdx); }}
-                            className="p-1 text-slate-700 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
-                          >
-                            <Trash2 size={12} />
-                          </button>
-                        )}
+                        <button
+                          onClick={(e) => { e.stopPropagation(); removeHelper(groupIdx, hIdx); }}
+                          className="p-1 text-slate-700 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
+                        >
+                          <Trash2 size={12} />
+                        </button>
                       </div>
                     ))}
 
-                    {source === 'web' && addingHelperToGroup === groupIdx && (
+                    {addingHelperToGroup === groupIdx && (
                       <div className="col-span-1 sm:col-span-2 flex flex-col gap-2 p-3 rounded-xl bg-white/[0.02] border border-amber-500/20">
                         <div className="flex gap-2">
                           <input
@@ -601,7 +625,7 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
                       </div>
                     )}
 
-                    {source === 'web' && addingHelperToGroup !== groupIdx && (
+                    {addingHelperToGroup !== groupIdx && (
                       <button
                         onClick={() => { setAddingHelperToGroup(groupIdx); setHelperName(''); setHelperClass(WoWClass.WARRIOR); }}
                         className="flex items-center justify-center gap-2 p-2.5 rounded-xl bg-white/[0.01] border border-dashed border-amber-500/10 hover:border-amber-500/30 hover:bg-amber-500/[0.03] transition-all group/add cursor-pointer"
@@ -702,12 +726,12 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
                  <X size={20} />
                </button>
             </div>
-            
+
             <div className="p-6 space-y-3 max-h-[60vh] overflow-y-auto custom-scrollbar">
               {(() => {
                 const player = roster.find(r => r.name === editMember.memberName);
                 if (!player) return <p className="text-slate-500 text-xs italic">Member nicht im Roster gefunden.</p>;
-                
+
                 const allChars = [player.mainCharacter, ...player.splits];
                 const activePlayerInGroup = currentSplits[editMember.groupIndex].players.find(p => p.playerName === editMember.memberName);
 
@@ -728,10 +752,10 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
                           disabled={isUsedElsewhere}
                           onClick={() => !isUsedElsewhere && changeCharacter(editMember.groupIndex, editMember.memberName, char)}
                           className={`w-full flex items-center justify-between p-4 rounded-xl border transition-all relative overflow-hidden ${
-                            isActiveHere 
-                              ? 'bg-indigo-600/10 border-indigo-500 text-indigo-400 shadow-[inset_0_0_20px_rgba(79,70,229,0.1)]' 
-                              : isUsedElsewhere 
-                                ? 'bg-black/40 border-white/5 text-slate-700 cursor-not-allowed grayscale' 
+                            isActiveHere
+                              ? 'bg-indigo-600/10 border-indigo-500 text-indigo-400 shadow-[inset_0_0_20px_rgba(79,70,229,0.1)]'
+                              : isUsedElsewhere
+                                ? 'bg-black/40 border-white/5 text-slate-700 cursor-not-allowed grayscale'
                                 : 'bg-white/5 border-white/5 text-slate-300 hover:border-white/10 hover:bg-white/[0.08]'
                           }`}
                         >
@@ -757,7 +781,7 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
                         </button>
                       );
                     })}
-                    
+
                     {activePlayerInGroup && (
                       <button
                         onClick={() => changeCharacter(editMember.groupIndex, editMember.memberName, null)}
@@ -770,6 +794,70 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
                   </>
                 );
               })()}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showCopyDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-[#0c0c0e] border border-white/10 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
+            <div className="p-6 border-b border-white/5 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Share2 className="text-indigo-400" size={20} />
+                <div>
+                  <h3 className="text-lg font-black text-white uppercase">Copy Setup</h3>
+                  <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Duplicate configuration between versions</p>
+                </div>
+              </div>
+              <button onClick={() => setShowCopyDialog(false)} className="p-2 text-slate-500 hover:text-white transition-colors">
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Copy From</label>
+                <select
+                  value={copyFrom}
+                  onChange={(e) => setCopyFrom(e.target.value as VersionKey)}
+                  className="w-full bg-black/60 border border-white/10 rounded-lg px-4 py-3 text-sm text-white focus:outline-none focus:border-indigo-500/40"
+                >
+                  {(Object.keys(VERSION_LABELS) as VersionKey[]).map(key => (
+                    <option key={key} value={key}>{VERSION_LABELS[key]}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Copy To</label>
+                <select
+                  value={copyTo}
+                  onChange={(e) => setCopyTo(e.target.value as VersionKey)}
+                  className="w-full bg-black/60 border border-white/10 rounded-lg px-4 py-3 text-sm text-white focus:outline-none focus:border-indigo-500/40"
+                >
+                  {(Object.keys(VERSION_LABELS) as VersionKey[]).map(key => (
+                    <option key={key} value={key}>{VERSION_LABELS[key]}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  onClick={handleCopyVersion}
+                  disabled={copyFrom === copyTo}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-indigo-600 text-white text-[11px] font-black uppercase tracking-widest hover:bg-indigo-500 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                >
+                  <Share2 size={14} />
+                  Copy Setup
+                </button>
+                <button
+                  onClick={() => setShowCopyDialog(false)}
+                  className="px-4 py-3 rounded-lg bg-white/5 border border-white/5 text-slate-400 text-[11px] font-black uppercase tracking-widest hover:text-white hover:border-white/10 transition-all"
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
           </div>
         </div>

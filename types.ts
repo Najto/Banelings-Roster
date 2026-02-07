@@ -32,6 +32,18 @@ export enum PlayerRole {
 }
 
 /**
+ * Split Version Keys for managing multiple raid configurations.
+ */
+export type VersionKey = 'main' | 'alt1' | 'alt2' | 'alt3';
+
+export const VERSION_LABELS: Record<VersionKey, string> = {
+  main: 'Main Setup',
+  alt1: 'Alternative Setup1',
+  alt2: 'Alternative Setup2',
+  alt3: 'Alternative Setup3'
+};
+
+/**
  * Priority for sorting roles in the UI (Tank -> Healer -> DPS).
  */
 export const ROLE_PRIORITY: Record<PlayerRole, number> = {

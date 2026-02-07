@@ -1,5 +1,5 @@
 
-import { SplitGroup, Player, Character, PlayerRole, WoWClass } from '../types';
+import { SplitGroup, Player, Character, PlayerRole, WoWClass, VersionKey } from '../types';
 import { supabase } from './supabaseClient';
 
 const SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vS8AIcE-2b-IJohqlFiUCp0laqabWOptLdAk1OpL9o8LptWglWr2rMwnV-7YM6dwwGiEO9ruz7triLa/";
@@ -48,19 +48,18 @@ const getGuildUuid = () => {
 
 export const persistenceService = {
   // SPLITS PERSISTENCE (Stores the drag-and-drop layout)
-  async saveSplits(splits: SplitGroup[]): Promise<boolean> {
+  async saveSplits(splits: SplitGroup[], versionKey: VersionKey): Promise<boolean> {
     try {
-      const uuid = getGuildUuid();
       const rawKey = getRawGuildKey();
-      
+
       const { error } = await supabase
         .from('splits')
-        .upsert({ 
-          id: uuid, 
+        .upsert({
           guild_key: rawKey,
+          version_key: versionKey,
           data: splits,
           updated_at: new Date().toISOString()
-        }, { onConflict: 'id' });
+        }, { onConflict: 'guild_key,version_key' });
 
       if (error) {
         console.error('Split save error:', error);
@@ -73,14 +72,15 @@ export const persistenceService = {
     }
   },
 
-  async loadSplits(): Promise<SplitGroup[] | null> {
+  async loadSplits(versionKey: VersionKey): Promise<SplitGroup[] | null> {
     try {
-      const uuid = getGuildUuid();
+      const rawKey = getRawGuildKey();
 
       const { data, error } = await supabase
         .from('splits')
         .select('data')
-        .eq('id', uuid)
+        .eq('guild_key', rawKey)
+        .eq('version_key', versionKey)
         .maybeSingle();
 
       if (error) {
@@ -91,6 +91,79 @@ export const persistenceService = {
     } catch (error) {
       console.error('Split load exception:', error);
       return null;
+    }
+  },
+
+  async copySplits(fromVersion: VersionKey, toVersion: VersionKey): Promise<boolean> {
+    try {
+      const rawKey = getRawGuildKey();
+
+      // Load the source version
+      const { data: sourceData, error: loadError } = await supabase
+        .from('splits')
+        .select('data')
+        .eq('guild_key', rawKey)
+        .eq('version_key', fromVersion)
+        .maybeSingle();
+
+      if (loadError || !sourceData) {
+        console.error('Failed to load source version:', loadError);
+        return false;
+      }
+
+      // Save to destination version
+      const { error: saveError } = await supabase
+        .from('splits')
+        .upsert({
+          guild_key: rawKey,
+          version_key: toVersion,
+          data: sourceData.data,
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'guild_key,version_key' });
+
+      if (saveError) {
+        console.error('Failed to save to destination version:', saveError);
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Copy splits exception:', error);
+      return false;
+    }
+  },
+
+  async getAllVersions(): Promise<Record<VersionKey, SplitGroup[] | null>> {
+    try {
+      const rawKey = getRawGuildKey();
+
+      const { data, error } = await supabase
+        .from('splits')
+        .select('version_key, data')
+        .eq('guild_key', rawKey);
+
+      if (error) {
+        console.error("Failed to load all versions:", error);
+        return { main: null, alt1: null, alt2: null, alt3: null };
+      }
+
+      const result: Record<VersionKey, SplitGroup[] | null> = {
+        main: null,
+        alt1: null,
+        alt2: null,
+        alt3: null
+      };
+
+      if (data) {
+        for (const row of data) {
+          result[row.version_key as VersionKey] = row.data as SplitGroup[];
+        }
+      }
+
+      return result;
+    } catch (error) {
+      console.error('Get all versions exception:', error);
+      return { main: null, alt1: null, alt2: null, alt3: null };
     }
   },
 

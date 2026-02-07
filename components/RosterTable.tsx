@@ -166,7 +166,7 @@ export const RosterTable: React.FC<RosterTableProps> = ({ roster, minIlvl }) => 
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse min-w-[800px]">
             <thead>
-              <tr className="border-b border-white/5 text-[10px] uppercase tracking-widest text-slate-600 font-black bg-black/40">
+              <tr className="border-b border-white/5 text-[12px] uppercase tracking-widest text-slate-600 font-black bg-black/40">
                 <th className="px-6 py-5 cursor-pointer hover:text-white transition-colors group" onClick={() => handleSort('name')}>
                   <div className="flex items-center">Character <SortIndicator column="name" /></div>
                 </th>

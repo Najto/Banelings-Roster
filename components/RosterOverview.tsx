@@ -164,7 +164,7 @@ export const RosterOverview: React.FC<RosterOverviewProps> = ({ roster, minIlvl,
                 {groupedPlayers[role].map(player => (
                   <tr key={player.id} className="hover:bg-white/[0.02] transition-colors">
                     <td className="px-6 py-3 align-middle">
-                      <span className="text-[11px] font-black text-slate-300 uppercase tracking-tighter">
+                      <span className="text-[101px] font-black text-slate-300 uppercase tracking-tighter">
                         {player.name}
                       </span>
                     </td>

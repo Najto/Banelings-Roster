@@ -91,13 +91,13 @@ export const fetchRosterFromSheet = async (): Promise<SheetSyncResult> => {
           const parts = result.split(' - ');
           const classSpec = parts[0] || "";
           const ilvl = parseInt(parts[1]) || 0;
-
+          
           characters.push({
             name: namePart?.trim() || "Unknown",
             playerName: playerName,
             className: parseClass(classSpec),
             itemLevel: ilvl,
-            server: serverPart?.trim() || "Blackhand",
+            server: serverPart?.trim(),
             isMain: i === 0
           });
         }

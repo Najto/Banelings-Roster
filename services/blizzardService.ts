@@ -181,5 +181,65 @@ export class BlizzardService {
       achievements,
       collections,
     };
+    // ===============================
+// SINGLETON INSTANCE
+// ===============================
+
+export const blizzardService = new BlizzardService();
+
+// ===============================
+// BACKWARD-COMPAT EXPORTS
+// (so existing imports keep working)
+// ===============================
+
+export const fetchBlizzardToken = () =>
+  blizzardService["getToken"]();
+
+export const getCharacterSummary = (realm: string, name: string) =>
+  blizzardService.getCharacterSummary(realm, name);
+
+export const getCharacterStats = (realm: string, name: string) =>
+  blizzardService.getCharacterStats(realm, name);
+
+export const getCharacterAchievements = (realm: string, name: string) =>
+  blizzardService.getCharacterAchievements(realm, name);
+
+export const getCharacterCollections = (realm: string, name: string) =>
+  blizzardService.getCharacterCollections(realm, name);
+
+export const getCharacterProfessions = (realm: string, name: string) =>
+  blizzardService.getCharacterProfessions(realm, name);
+
+export const getCharacterEquipment = (realm: string, name: string) =>
+  blizzardService.getCharacterEquipment(realm, name);
+
+export const getCharacterPvPSummary = (realm: string, name: string) =>
+  blizzardService.fetch(
+    `/profile/wow/character/${realm.toLowerCase()}/${name.toLowerCase()}/pvp-summary`,
+    "profile-eu",
+    60
+  );
+
+export const getCharacterPvPBracket = (
+  realm: string,
+  name: string,
+  bracket: string
+) =>
+  blizzardService.fetch(
+    `/profile/wow/character/${realm.toLowerCase()}/${name.toLowerCase()}/pvp-bracket/${bracket}`,
+    "profile-eu",
+    60
+  );
+
+export const getCharacterReputations = (realm: string, name: string) =>
+  blizzardService.getCharacterReputations(realm, name);
+
+export const getCharacterQuests = (realm: string, name: string) =>
+  blizzardService.fetch(
+    `/profile/wow/character/${realm.toLowerCase()}/${name.toLowerCase()}/quests/completed`,
+    "profile-eu",
+    300
+  );
+
   }
 }

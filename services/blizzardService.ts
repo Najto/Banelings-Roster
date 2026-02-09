@@ -131,7 +131,6 @@ export const getCharacterPvPSummary = async (token: string, realm: string, name:
   } catch (e) { return null; }
 };
 
-/**
 export const getCharacterPvPBracket = async (token: string, realm: string, name: string, bracket: string): Promise<any> => {
   const base = `https://eu.api.blizzard.com/profile/wow/character/${realm.toLowerCase()}/${name.toLowerCase()}/pvp-bracket/${bracket}`;
   const ns = "profile-eu";
@@ -142,7 +141,7 @@ export const getCharacterPvPBracket = async (token: string, realm: string, name:
     return response.ok ? await response.json() : null;
   } catch (e) { return null; }
 };
-*/
+
 export const getCharacterReputations = async (token: string, realm: string, name: string): Promise<any> => {
   const base = `https://eu.api.blizzard.com/profile/wow/character/${realm.toLowerCase()}/${name.toLowerCase()}/reputations`;
   const ns = "profile-eu";

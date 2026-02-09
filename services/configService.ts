@@ -7,9 +7,9 @@ export interface IlvlThresholds {
 }
 
 const DEFAULT_THRESHOLDS: IlvlThresholds = {
-  min_ilvl: 615,
-  mythic_ilvl: 626,
-  heroic_ilvl: 613,
+  min_ilvl: 150,
+  mythic_ilvl: 168,
+  heroic_ilvl: 160,
 };
 
 export const configService = {

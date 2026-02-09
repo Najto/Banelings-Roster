@@ -503,7 +503,7 @@ export const Settings: React.FC<SettingsProps> = ({ onRosterUpdate }) => {
           </div>
         )}
       </div>
-                <div className="flex flex-col items-end gap-2">
+          <div className="flex flex-col items-end gap-2">
               <button 
                   onClick={syncAll}
                   disabled={isUpdating}

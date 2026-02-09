@@ -1019,7 +1019,7 @@ const App: React.FC = () => {
                   className="bg-indigo-600 hover:bg-indigo-500 text-white px-8 py-4 rounded-2xl text-xs font-black uppercase tracking-[0.2em] flex items-center gap-3 transition-all active:scale-95 disabled:opacity-50 shadow-xl shadow-indigo-600/20"
               >
                   {isUpdating ? <Loader2 className="animate-spin" size={16} /> : <RefreshCw size={16} />}
-                  {isUpdating ? `SYNCING ${updateProgress.current}/${updateProgress.total}` : 'REFRESH DATA'}
+                  {isUpdating ? `SYNCING ${updateProgress.current}/${updateProgress.total}` : 'REFRESH Armory'}
               </button>
               {isUpdating && (
                 <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden mt-1">

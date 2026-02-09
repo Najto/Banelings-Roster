@@ -503,7 +503,24 @@ export const Settings: React.FC<SettingsProps> = ({ onRosterUpdate }) => {
           </div>
         )}
       </div>
-
+                <div className="flex flex-col items-end gap-2">
+              <button 
+                  onClick={syncAll}
+                  disabled={isUpdating}
+                  className="bg-indigo-600 hover:bg-indigo-500 text-white px-8 py-4 rounded-2xl text-xs font-black uppercase tracking-[0.2em] flex items-center gap-3 transition-all active:scale-95 disabled:opacity-50 shadow-xl shadow-indigo-600/20"
+              >
+                  {isUpdating ? <Loader2 className="animate-spin" size={16} /> : <RefreshCw size={16} />}
+                  {isUpdating ? `SYNCING ${updateProgress.current}/${updateProgress.total}` : 'REFRESH DATA'}
+              </button>
+              {isUpdating && (
+                <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden mt-1">
+                  <div 
+                    className="h-full bg-indigo-500 transition-all duration-300" 
+                    style={{ width: `${(updateProgress.current / updateProgress.total) * 100}%` }} 
+                  />
+                </div>
+              )}
+          </div>
       {/* Item Level Thresholds Section */}
       <div className="bg-[#0c0c0e] border border-white/5 rounded-2xl p-8 shadow-2xl">
         <div className="flex items-center gap-3 mb-6">

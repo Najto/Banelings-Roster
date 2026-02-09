@@ -1,232 +1,227 @@
-import Redis from "ioredis";
-import pLimit from "p-limit";
-import { Agent, setGlobalDispatcher } from "undici";
+// services/blizzardService.ts
 
-/* ===============================
-   CONFIG
-================================ */
+const BLIZZARD_API_BASE = 'https://eu.api.blizzard.com';
+const BLIZZARD_AUTH_BASE = 'https://oauth.battle.net';
 
-const REGION = "eu";
-const LOCALE = "en_GB";
-const API_BASE = `https://${REGION}.api.blizzard.com`;
-
-const CLIENT_ID = "6297890373d64a43920eebba7395ddd7";
+const CLIENT_ID = "6297890373d64a43920eebba7395ddd7"; 
 const CLIENT_SECRET = "2aik8t8euM3mGGYDvUrELn9lNVarodGr";
 
-/* ===============================
-   HTTP KEEP-ALIVE
-================================ */
+// -----------------------------
+// Simple in-memory cache
+// -----------------------------
+type CacheEntry<T> = {
+  value: T;
+  expiresAt: number;
+};
 
-const agent = new Agent({
-  connections: 10,
-  keepAliveTimeout: 10_000,
-  keepAliveMaxTimeout: 60_000,
-});
+const cache = new Map<string, CacheEntry<any>>();
 
-setGlobalDispatcher(agent);
-
-/* ===============================
-   REDIS
-================================ */
-
-const redis = new Redis(); // configure if needed
-
-/* ===============================
-   RATE LIMITING
-================================ */
-// Blizzard is generous, but don’t be rude
-const limit = pLimit(5);
-
-/* ===============================
-   SERVICE
-================================ */
-
-export class BlizzardService {
-  private token: { value: string; expiresAt: number } | null = null;
-
-  /* ===========================
-     AUTH
-  ============================ */
-
-  private async getToken(): Promise<string> {
-    if (this.token && Date.now() < this.token.expiresAt) {
-      return this.token.value;
-    }
-
-    const res = await fetch("https://oauth.battle.net/token", {
-      method: "POST",
-      body: new URLSearchParams({ grant_type: "client_credentials" }),
-      headers: {
-        Authorization:
-          "Basic " +
-          Buffer.from(`${CLIENT_ID}:${CLIENT_SECRET}`).toString("base64"),
-      },
-    });
-
-    if (!res.ok) {
-      throw new Error("Blizzard OAuth failed");
-    }
-
-    const data = await res.json();
-
-    this.token = {
-      value: data.access_token,
-      expiresAt: Date.now() + (data.expires_in - 60) * 1000,
-    };
-
-    return this.token.value;
+function getCache<T>(key: string): T | null {
+  const entry = cache.get(key);
+  if (!entry) return null;
+  if (Date.now() > entry.expiresAt) {
+    cache.delete(key);
+    return null;
   }
-
-  /* ===========================
-     CORE FETCH (cached + limited)
-  ============================ */
-
-  private async fetch<T>(
-    path: string,
-    namespace = "profile-eu",
-    ttlSeconds = 60
-  ): Promise<T | null> {
-    const cacheKey = `blizzard:${path}:${namespace}:${LOCALE}`;
-
-    const cached = await redis.get(cacheKey);
-    if (cached) return JSON.parse(cached);
-
-    return limit(async () => {
-      const token = await this.getToken();
-      const url = `${API_BASE}${path}?namespace=${namespace}&locale=${LOCALE}`;
-
-      const res = await fetch(url, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (!res.ok) return null;
-
-      const data = await res.json();
-      await redis.set(cacheKey, JSON.stringify(data), "EX", ttlSeconds);
-
-      return data;
-    });
-  }
-
-  /* ===========================
-     CHARACTER ENDPOINTS
-  ============================ */
-
-  private charPath(realm: string, name: string) {
-    return `/profile/wow/character/${realm.toLowerCase()}/${name.toLowerCase()}`;
-  }
-
-  getCharacterSummary(realm: string, name: string) {
-    return this.fetch(`${this.charPath(realm, name)}`, "profile-eu", 60);
-  }
-
-  getCharacterStats(realm: string, name: string) {
-    return this.fetch(`${this.charPath(realm, name)}/statistics`, "profile-eu", 60);
-  }
-
-  getCharacterEquipment(realm: string, name: string) {
-    return this.fetch(`${this.charPath(realm, name)}/equipment`, "profile-eu", 120);
-  }
-
-  getCharacterProfessions(realm: string, name: string) {
-    return this.fetch(`${this.charPath(realm, name)}/professions`, "profile-eu", 300);
-  }
-
-  getCharacterReputations(realm: string, name: string) {
-    return this.fetch(`${this.charPath(realm, name)}/reputations`, "profile-eu", 300);
-  }
-
-  getCharacterAchievements(realm: string, name: string) {
-    return this.fetch(`${this.charPath(realm, name)}/achievements`, "profile-eu", 300);
-  }
-
-  getCharacterCollections(realm: string, name: string) {
-    const base = `${this.charPath(realm, name)}/collections`;
-    return Promise.all([
-      this.fetch(`${base}/mounts`, "profile-eu", 600),
-      this.fetch(`${base}/pets`, "profile-eu", 600),
-      this.fetch(`${base}/toys`, "profile-eu", 600),
-    ]).then(([mounts, pets, toys]) => ({ mounts, pets, toys }));
-  }
-
-  /* ===========================
-     AGGREGATED PROFILE
-  ============================ */
-
-  async getFullCharacterProfile(realm: string, name: string) {
-    const [
-      summary,
-      stats,
-      equipment,
-      professions,
-      reputations,
-      achievements,
-      collections,
-    ] = await Promise.all([
-      this.getCharacterSummary(realm, name),
-      this.getCharacterStats(realm, name),
-      this.getCharacterEquipment(realm, name),
-      this.getCharacterProfessions(realm, name),
-      this.getCharacterReputations(realm, name),
-      this.getCharacterAchievements(realm, name),
-      this.getCharacterCollections(realm, name),
-    ]);
-
-    return {
-      summary,
-      stats,
-      equipment,
-      professions,
-      reputations,
-      achievements,
-      collections,
-    };
-    
-  }
+  return entry.value;
 }
-/* ===============================
-   SINGLETON INSTANCE
-================================ */
 
-export const blizzardService = new BlizzardService();
+function setCache<T>(key: string, value: T, ttlMs: number) {
+  cache.set(key, {
+    value,
+    expiresAt: Date.now() + ttlMs
+  });
+}
 
-/* ===============================
-   BACKWARD-COMPAT EXPORTS
-================================ */
+// -----------------------------
+// Basic rate limiting
+// -----------------------------
+let lastRequestTime = 0;
+const MIN_REQUEST_INTERVAL = 200; // ms
 
-export const fetchBlizzardToken = () =>
-  blizzardService.getToken();
+async function rateLimit() {
+  const now = Date.now();
+  const diff = now - lastRequestTime;
+  if (diff < MIN_REQUEST_INTERVAL) {
+    await new Promise(res =>
+      setTimeout(res, MIN_REQUEST_INTERVAL - diff)
+    );
+  }
+  lastRequestTime = Date.now();
+}
 
-export const getCharacterSummary = (realm: string, name: string) =>
-  blizzardService.getCharacterSummary(realm, name);
+// -----------------------------
+// OAuth token
+// -----------------------------
+export async function fetchBlizzardToken(): Promise<string> {
+  const cached = getCache<string>('blizzard_token');
+  if (cached) return cached;
 
-export const getCharacterStats = (realm: string, name: string) =>
-  blizzardService.getCharacterStats(realm, name);
+  await rateLimit();
 
-export const getCharacterAchievements = (realm: string, name: string) =>
-  blizzardService.getCharacterAchievements(realm, name);
+  const response = await fetch(`${BLIZZARD_AUTH_BASE}/token`, {
+    method: 'POST',
+    headers: {
+      Authorization:
+        'Basic ' +
+        btoa(`${CLIENT_ID}:${CLIENT_SECRET}`),
+      'Content-Type': 'application/x-www-form-urlencoded'
+    },
+    body: 'grant_type=client_credentials'
+  });
 
-export const getCharacterCollections = (realm: string, name: string) =>
-  blizzardService.getCharacterCollections(realm, name);
+  if (!response.ok) {
+    throw new Error('Failed to fetch Blizzard token');
+  }
 
-export const getCharacterProfessions = (realm: string, name: string) =>
-  blizzardService.getCharacterProfessions(realm, name);
+  const data = await response.json();
 
-export const getCharacterEquipment = (realm: string, name: string) =>
-  blizzardService.getCharacterEquipment(realm, name);
+  setCache('blizzard_token', data.access_token, data.expires_in * 1000);
+  return data.access_token;
+}
 
-export const getCharacterPvPSummary = (realm: string, name: string) =>
-  blizzardService.getCharacterPvPSummary(realm, name);
+// -----------------------------
+// Generic API fetcher
+// -----------------------------
+async function blizzardFetch<T>(
+  endpoint: string,
+  token: string,
+  namespace = 'profile-eu'
+): Promise<T> {
+  const cacheKey = `${endpoint}`;
 
-export const getCharacterPvPBracket = (
+  const cached = getCache<T>(cacheKey);
+  if (cached) return cached;
+
+  await rateLimit();
+
+  const url = `${BLIZZARD_API_BASE}${endpoint}?namespace=${namespace}&locale=en_GB`;
+
+  const response = await fetch(url, {
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
+
+  if (!response.ok) {
+    throw new Error(`Blizzard API error: ${response.status}`);
+  }
+
+  const data = await response.json();
+  setCache(cacheKey, data, 60_000); // cache 60s
+  return data;
+}
+
+// -----------------------------
+// Character endpoints
+// -----------------------------
+export function getCharacterSummary(
   realm: string,
   name: string,
-  bracket: string
-) =>
-  blizzardService.getCharacterPvPBracket(realm, name, bracket);
+  token: string
+) {
+  return blizzardFetch(
+    `/profile/wow/character/${realm}/${name}`,
+    token
+  );
+}
 
-export const getCharacterReputations = (realm: string, name: string) =>
-  blizzardService.getCharacterReputations(realm, name);
+export function getCharacterStats(
+  realm: string,
+  name: string,
+  token: string
+) {
+  return blizzardFetch(
+    `/profile/wow/character/${realm}/${name}/statistics`,
+    token
+  );
+}
 
-export const getCharacterQuests = (realm: string, name: string) =>
-  blizzardService.getCharacterQuests(realm, name);
+export function getCharacterAchievements(
+  realm: string,
+  name: string,
+  token: string
+) {
+  return blizzardFetch(
+    `/profile/wow/character/${realm}/${name}/achievements`,
+    token
+  );
+}
+
+export function getCharacterCollections(
+  realm: string,
+  name: string,
+  token: string
+) {
+  return blizzardFetch(
+    `/profile/wow/character/${realm}/${name}/collections`,
+    token
+  );
+}
+
+export function getCharacterProfessions(
+  realm: string,
+  name: string,
+  token: string
+) {
+  return blizzardFetch(
+    `/profile/wow/character/${realm}/${name}/professions`,
+    token
+  );
+}
+
+export function getCharacterEquipment(
+  realm: string,
+  name: string,
+  token: string
+) {
+  return blizzardFetch(
+    `/profile/wow/character/${realm}/${name}/equipment`,
+    token
+  );
+}
+
+export function getCharacterPvPSummary(
+  realm: string,
+  name: string,
+  token: string
+) {
+  return blizzardFetch(
+    `/profile/wow/character/${realm}/${name}/pvp-summary`,
+    token
+  );
+}
+
+export function getCharacterPvPBracket(
+  realm: string,
+  name: string,
+  bracket: string,
+  token: string
+) {
+  return blizzardFetch(
+    `/profile/wow/character/${realm}/${name}/pvp-bracket/${bracket}`,
+    token
+  );
+}
+
+export function getCharacterReputations(
+  realm: string,
+  name: string,
+  token: string
+) {
+  return blizzardFetch(
+    `/profile/wow/character/${realm}/${name}/reputations`,
+    token
+  );
+}
+
+export function getCharacterQuests(
+  realm: string,
+  name: string,
+  token: string
+) {
+  return blizzardFetch(
+    `/profile/wow/character/${realm}/${name}/quests`,
+    token
+  );
+}

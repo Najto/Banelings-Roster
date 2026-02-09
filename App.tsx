@@ -51,11 +51,11 @@ const TIER_TYPES = ['HEAD', 'SHOULDER', 'CHEST', 'HANDS', 'LEGS'];
  * Used for visual categorization in the Gear Audit.
  */
 const determineTrack = (ilvl: number): string => {
-  if (ilvl >= 626) return "Mythic";
-  if (ilvl >= 613) return "Heroic";
-  if (ilvl >= 600) return "Champion";
-  if (ilvl >= 587) return "Veteran";
-  if (ilvl >= 574) return "Adventurer";
+  if (ilvl >= 150) return "Mythic";
+  if (ilvl >= 140) return "Heroic";
+  if (ilvl >= 130) return "Champion";
+  if (ilvl >= 125) return "Veteran";
+  if (ilvl >= 120) return "Adventurer";
   return "Explorer";
 };
 

@@ -667,9 +667,9 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
                       {group.players.filter(p => !p.isOrphaned && p.isMain).length} Mains
                     </span>
                     <span className="text-slate-500">/</span>
-                    {/* Total count in slate color */}
-                    <span className="text-slate-400">
-                      {group.players.filter(p => !p.isOrphaned).length} Total
+                    {/* Total count including helpers */}
+                    <span className="text-indigo-400">
+                      {group.players.filter(p => !p.isOrphaned).length + (group.helpers || []).length} Total
                     </span>
                   </div>
                 </div>

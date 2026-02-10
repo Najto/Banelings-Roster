@@ -895,7 +895,7 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
                     })}
                   </div>
                 </div>
-
+                {/*Armor Class count with hover highlight*/}
                 <div className="bg-black/40 border border-white/5 rounded-xl p-4">
                   <div className="flex items-center justify-between mb-4">
                     <h5 className="text-[9px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">

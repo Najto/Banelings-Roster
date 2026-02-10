@@ -604,6 +604,7 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
                 <h3 className="text-xl font-black text-white uppercase tracking-tight">{group.name}</h3>
                 <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Average iLvl: <span className="text-indigo-400">{group.avgIlvl.toFixed(1)}</span> <span className="text-slate-700">(Active only)</span></p>
               </div>
+              {/* Count Players per split */}
               <div className="flex flex-col items-end gap-1">
                 <div className="px-3 py-1 bg-black rounded-lg border border-white/5 text-[10px] font-black uppercase tracking-widest">
                   <div className="flex items-center gap-2">
@@ -617,7 +618,7 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
                   </div>
                 </div>
                 
-                {/* You can keep the deleted players count if needed */}
+                {/* deleted players count  */}
                 {group.players.filter(p => p.isOrphaned).length > 0 && (
                   <div className="px-3 py-1 bg-red-500/10 rounded-lg border border-red-500/20 text-[10px] font-black uppercase tracking-widest text-red-500 flex items-center gap-1.5">
                     <AlertTriangle size={10} />
@@ -626,7 +627,6 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
                 )}
               </div>
             </div>
-
             <div className="flex-1 p-4 grid grid-cols-1 lg:grid-cols-12 gap-6">
               <div className="lg:col-span-8 space-y-6">
                 {Object.keys(PlayerRole).filter(r => r !== 'UNKNOWN').sort((a,b) => ROLE_PRIORITY[a as PlayerRole] - ROLE_PRIORITY[b as PlayerRole]).map(roleKey => {

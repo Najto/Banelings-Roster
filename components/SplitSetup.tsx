@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { SplitGroup, HelperCharacter, PlayerRole, CLASS_COLORS, ROLE_PRIORITY, WoWClass, Player, Character, VersionKey, VERSION_LABELS } from '../types';
 import { persistenceService } from '../services/persistenceService';
@@ -56,6 +55,7 @@ interface SplitSetupProps {
   minIlvl: number;
 }
 
+// Buff provider mapping - which classes provide which raid buffs
 const BUFF_PROVIDERS: Record<string, WoWClass[]> = {
   "5% Intellect": [WoWClass.MAGE],
   "5% Attack Power": [WoWClass.WARRIOR],
@@ -76,6 +76,7 @@ const BUFF_PROVIDERS: Record<string, WoWClass[]> = {
   "3.6% DMG Red": [WoWClass.PALADIN]
 };
 
+// Metadata for each buff including description and icon
 const BUFF_METADATA: Record<string, { description: string, icon: React.ReactNode }> = {
   "5% Intellect": { description: "Arcane Brilliance: Increases Intellect by 5%.", icon: <Brain size={14} /> },
   "5% Attack Power": { description: "Battle Shout: Increases Attack Power by 5%.", icon: <Swords size={14} /> },
@@ -96,6 +97,7 @@ const BUFF_METADATA: Record<string, { description: string, icon: React.ReactNode
   "Mass Resurrection": { description: "Allows the caster to resurrect all dead party members.", icon: <PlusCircle size={14} /> }
 };
 
+// Descriptions for each armor type
 const ARMOR_DESCRIPTIONS: Record<string, string> = {
   "cloth": "Mages, Priests, Warlocks",
   "leather": "Druids, Monks, Rogues, Demon Hunters",
@@ -103,7 +105,16 @@ const ARMOR_DESCRIPTIONS: Record<string, string> = {
   "plate": "Warriors, Paladins, Death Knights"
 };
 
-// Fix: Destructured key and added optional children to satisfy TypeScript when used in maps
+// Helper function to determine armor type for a given class
+const getArmorTypeForClass = (className: WoWClass): string => {
+  if ([WoWClass.MAGE, WoWClass.PRIEST, WoWClass.WARLOCK].includes(className)) return 'cloth';
+  if ([WoWClass.DRUID, WoWClass.MONK, WoWClass.ROGUE, WoWClass.DEMON_HUNTER].includes(className)) return 'leather';
+  if ([WoWClass.HUNTER, WoWClass.SHAMAN, WoWClass.EVOKER].includes(className)) return 'mail';
+  if ([WoWClass.WARRIOR, WoWClass.PALADIN, WoWClass.DEATH_KNIGHT].includes(className)) return 'plate';
+  return '';
+};
+
+// Reusable Tooltip component
 const Tooltip = ({ content, children, key }: { content: string, children?: React.ReactNode, key?: React.Key }) => {
   if (!content) return <>{children}</>;
   return (
@@ -119,6 +130,7 @@ const Tooltip = ({ content, children, key }: { content: string, children?: React
   );
 };
 
+// Role icon component
 const RoleIcon = ({ role }: { role: PlayerRole }) => {
   switch (role) {
     case PlayerRole.TANK: return <Shield size={14} className="text-blue-400" />;
@@ -129,6 +141,7 @@ const RoleIcon = ({ role }: { role: PlayerRole }) => {
   }
 };
 
+// Helper function to compare if two characters are the same
 const isSameCharacter = (c1: { name: string, isMain?: boolean, server?: string }, c2: { name: string, isMain?: boolean, server?: string }) => {
     return c1.name === c2.name && 
            c1.isMain === c2.isMain && 
@@ -136,26 +149,46 @@ const isSameCharacter = (c1: { name: string, isMain?: boolean, server?: string }
 };
 
 export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl }) => {
+  // State for current version and split configuration
   const [currentVersion, setCurrentVersion] = useState<VersionKey>('main');
   const [currentSplits, setCurrentSplits] = useState<SplitGroup[]>([]);
+  
+  // State for editing members
   const [editMember, setEditMember] = useState<{ memberName: string, groupIndex: number } | null>(null);
+  
+  // State for sync status
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'synced' | 'error'>('idle');
+  
+  // State for helper management
   const [addingHelperToGroup, setAddingHelperToGroup] = useState<number | null>(null);
   const [helperName, setHelperName] = useState('');
   const [helperClass, setHelperClass] = useState<WoWClass>(WoWClass.WARRIOR);
+  
+  // State for version copying
   const [showCopyDialog, setShowCopyDialog] = useState(false);
   const [copyFrom, setCopyFrom] = useState<VersionKey>('main');
   const [copyTo, setCopyTo] = useState<VersionKey>('alt1');
+  
+  // State for authentication
   const [isAdmin, setIsAdmin] = useState(false);
   const [showLoginDialog, setShowLoginDialog] = useState(false);
   const [loginEmail, setLoginEmail] = useState('admin');
   const [loginPassword, setLoginPassword] = useState('');
+  
+  // State for loading and real-time features
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [isRealtimeConnected, setIsRealtimeConnected] = useState(false);
   const [activeUsers, setActiveUsers] = useState(0);
+  
+  // NEW: State for armor hover highlighting
+  const [highlightedArmorType, setHighlightedArmorType] = useState<string | null>(null);
+  const [highlightedGroupIndex, setHighlightedGroupIndex] = useState<number | null>(null);
+  
+  // Refs and hooks
   const isSavingRef = useRef(false);
   const { toasts, showToast, dismissToast } = useToast();
 
+  // Resolve splits by matching players with roster data
   const resolveSplits = useCallback((baseSplits: SplitGroup[]) => {
     return baseSplits.map(group => ({
       ...group,
@@ -184,6 +217,7 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
     }));
   }, [roster]);
 
+  // Authentication effect
   useEffect(() => {
     const checkAuth = async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -202,6 +236,7 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
     };
   }, []);
 
+  // Login handler
   const handleLogin = async () => {
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -221,11 +256,13 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
     }
   };
 
+  // Logout handler
   const handleLogout = async () => {
     await supabase.auth.signOut();
     setIsAdmin(false);
   };
 
+  // Initial load effect
   useEffect(() => {
     const initSource = async () => {
       try {
@@ -251,6 +288,7 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
     initSource();
   }, [currentVersion, splits, resolveSplits]);
 
+  // Real-time subscription effect
   useEffect(() => {
     const guildKeyMatch = "2PACX-1vS8AIcE-2b-IJohqlFiUCp0laqabWOptLdAk1OpL9o8LptWglWr2rMwnV-7YM6dwwGiEO9ruz7triLa";
 
@@ -284,6 +322,7 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
     };
   }, [currentVersion, resolveSplits, showToast]);
 
+  // Save splits to backend
   const saveWebSplits = async (newSplits: SplitGroup[]) => {
     if (currentVersion === 'main' && !isAdmin) {
       alert('You have to be an admin to do that');
@@ -300,6 +339,7 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
     }, 1000);
   };
 
+  // Copy version handler
   const handleCopyVersion = async () => {
     if (copyFrom === copyTo) {
       alert('Source and destination must be different.');
@@ -326,6 +366,7 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
     }
   };
 
+  // Calculate armor distribution for mains only
   const calculateArmor = (players: SplitGroup['players']) => {
     const armor: SplitGroup['armor'] = { cloth: 0, leather: 0, mail: 0, plate: 0 };
     players.filter(p => p.isMain).forEach(p => {
@@ -338,6 +379,7 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
     return armor;
   };
 
+  // Update group statistics
   const updateGroupStats = (group: SplitGroup): SplitGroup => {
     const activePlayers = group.players.filter(p => !p.isOrphaned);
     const totalIlvl = activePlayers.reduce((sum, p) => sum + p.ilvl, 0);
@@ -348,6 +390,7 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
     };
   };
 
+  // Drag and drop handlers
   const handleDragStart = (e: React.DragEvent, playerName: string, charName: string, isMain: boolean, server: string | undefined, fromGroupIdx: number) => {
     e.dataTransfer.setData('playerName', playerName);
     e.dataTransfer.setData('charName', charName);
@@ -406,6 +449,7 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
     saveWebSplits(newSplits);
   };
 
+  // Change character assignment
   const changeCharacter = (groupIndex: number, playerName: string, newChar: Character | null) => {
     const newSplits = [...currentSplits];
     const group = newSplits[groupIndex];
@@ -430,6 +474,7 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
     setEditMember(null);
   };
 
+  // Helper management functions
   const addHelper = (groupIdx: number, name: string, className: WoWClass) => {
     const newSplits = [...currentSplits];
     const group = { ...newSplits[groupIdx] };
@@ -457,6 +502,7 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
     e.dataTransfer.setData('fromGroupIdx', fromGroupIdx.toString());
   };
 
+  // Group players by role for display
   const playersByRole = useMemo(() => {
     const roles: Record<PlayerRole, Player[]> = {
       [PlayerRole.TANK]: [],
@@ -469,6 +515,7 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
     return roles;
   }, [roster]);
 
+  // Loading state
   if (isInitialLoad || !currentSplits || currentSplits.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-slate-600">
@@ -481,7 +528,8 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
   return (
     <div className="space-y-6">
       <Toast toasts={toasts} onDismiss={dismissToast} />
-      {/* Shared Header & Toggles */}
+      
+      {/* Header section with version selection and sync status */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between bg-[#0c0c0e]/50 p-3 rounded-2xl border border-white/5 gap-4 shadow-xl">
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="flex flex-wrap p-1 bg-black rounded-xl border border-white/5 gap-1">
@@ -591,6 +639,7 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
         </div>
       </div>
 
+      {/* Main split groups display */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
         {currentSplits.map((group, groupIdx) => (
           <div 
@@ -599,32 +648,41 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
             onDragOver={(e) => e.preventDefault()}
             onDrop={(e) => handleDrop(e, groupIdx)}
           >
+            {/* Group header with name, stats, and counts */}
             <div className="p-6 bg-indigo-500/5 border-b border-white/5 flex items-center justify-between">
               <div>
                 <h3 className="text-xl font-black text-white uppercase tracking-tight">{group.name}</h3>
-                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Average iLvl: <span className="text-indigo-400">{group.avgIlvl.toFixed(1)}</span> <span className="text-slate-700">(Active only)</span></p>
+                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">
+                  Average iLvl: <span className="text-indigo-400">{group.avgIlvl.toFixed(1)}</span> 
+                  <span className="text-slate-700"> (Active only)</span>
+                </p>
               </div>
-              {/* Count Players per split */}
+              
+              {/* UPDATED: Count display showing Mains/Total instead of Active Chars */}
               <div className="flex flex-col items-end gap-1">
                 <div className="px-3 py-1 bg-black rounded-lg border border-white/5 text-[10px] font-black uppercase tracking-widest">
                   <div className="flex items-center gap-2">
+                    {/* Mains count in amber color */}
                     <span className="text-amber-500">
                       {group.players.filter(p => !p.isOrphaned && p.isMain).length} Mains
                     </span>
                     <span className="text-slate-500">/</span>
+                    {/* Total count in slate color */}
                     <span className="text-slate-400">
-                      {group.players.filter(p => !p.isOrphaned).length} Total
+                      {group.players.filter(p => !p.isOrphaned && !p.isMain).length} Twinks
                     </span>
                   </div>
                 </div>
-                  {/* Helpers count */}
+                
+                {/* Helpers count - displayed separately */}
                 {(group.helpers || []).length > 0 && (
                   <div className="px-3 py-1 bg-amber-500/10 rounded-lg border border-amber-500/20 text-[10px] font-black uppercase tracking-widest text-amber-500 flex items-center gap-1.5">
                     <HandHelping size={10} />
                     {(group.helpers || []).length} Helpers
                   </div>
                 )}
-                {/* deleted players count  */}
+                
+                {/* Deleted players count - less prominent since it's rare */}
                 {group.players.filter(p => p.isOrphaned).length > 0 && (
                   <div className="px-3 py-1 bg-red-500/10 rounded-lg border border-red-500/20 text-[10px] font-black uppercase tracking-widest text-red-500 flex items-center gap-1.5">
                     <AlertTriangle size={10} />
@@ -633,7 +691,10 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
                 )}
               </div>
             </div>
+
+            {/* Group content divided into left (players) and right (stats) sections */}
             <div className="flex-1 p-4 grid grid-cols-1 lg:grid-cols-12 gap-6">
+              {/* Left section: Players organized by role */}
               <div className="lg:col-span-8 space-y-6">
                 {Object.keys(PlayerRole).filter(r => r !== 'UNKNOWN').sort((a,b) => ROLE_PRIORITY[a as PlayerRole] - ROLE_PRIORITY[b as PlayerRole]).map(roleKey => {
                   const role = PlayerRole[roleKey as keyof typeof PlayerRole];
@@ -664,10 +725,17 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
                                 draggable={true}
                                 onDragStart={(e) => handleDragStart(e, member.name, assignedChar.name, assignedChar.isMain, assignedChar.server, groupIdx)}
                                 onClick={() => setEditMember({ memberName: member.name, groupIndex: groupIdx })}
-                                className={`flex flex-col p-2.5 rounded-xl transition-all group cursor-grab active:cursor-grabbing ${
+                                className={`flex flex-col p-2.5 rounded-xl transition-all duration-300 group cursor-grab active:cursor-grabbing ${
                                   isOrphaned
                                     ? 'bg-red-500/[0.03] border-2 border-red-500 hover:border-red-400 hover:bg-red-500/[0.06]'
                                     : 'bg-white/[0.02] border border-white/5 hover:border-white/10 hover:bg-white/[0.04]'
+                                } ${
+                                  // NEW: Highlight effect for armor type hover
+                                  !isOrphaned && assignedChar.isMain && 
+                                  highlightedArmorType === getArmorTypeForClass(assignedChar.className) &&
+                                  highlightedGroupIndex === groupIdx
+                                    ? '!border-indigo-500/50 !bg-indigo-500/10 shadow-[0_0_15px_rgba(79,70,229,0.3)]' 
+                                    : ''
                                 }`}
                               >
                                 <div className="flex items-center justify-between">
@@ -780,6 +848,7 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
                   );
                 })}
 
+                {/* Helpers section */}
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 px-2">
                     <HandHelping size={14} className="text-amber-400" />
@@ -871,7 +940,9 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
                 </div>
               </div>
 
+              {/* Right section: Group statistics (buffs, armor, utility) */}
               <div className="lg:col-span-4 space-y-6">
+                {/* Raid Buffs section */}
                 <div className="bg-black/40 border border-white/5 rounded-xl p-4">
                   <h5 className="text-[9px] font-black uppercase tracking-widest text-slate-500 mb-4 flex items-center gap-2">
                       <CheckCircle2 size={12} className="text-indigo-500" /> Raid Buffs
@@ -895,7 +966,8 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
                     })}
                   </div>
                 </div>
-                {/*Armor Class count with hover highlight*/}
+
+                {/* UPDATED: Armor Class section with hover highlighting */}
                 <div className="bg-black/40 border border-white/5 rounded-xl p-4">
                   <div className="flex items-center justify-between mb-4">
                     <h5 className="text-[9px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
@@ -904,17 +976,78 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
                     <span className="text-[7px] font-black uppercase tracking-tighter text-slate-600">Mains Only</span>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
-                    {Object.entries(group.armor).map(([type, count]) => (
-                      <Tooltip key={type} content={ARMOR_DESCRIPTIONS[type] || ""}>
-                        <div className="bg-white/[0.02] border border-white/5 p-2 rounded-lg text-center cursor-help hover:border-white/20 transition-all">
-                          <span className="block text-[8px] font-black uppercase text-slate-600 mb-1">{type}</span>
-                          <span className="text-sm text-[20px] font-black text-white">{count}</span>
-                        </div>
-                      </Tooltip>
-                    ))}
+                    {Object.entries(group.armor).map(([type, count]) => {
+                      // Determine which classes wear this armor type
+                      const armorClasses: WoWClass[] = (() => {
+                        switch(type) {
+                          case 'cloth': return [WoWClass.MAGE, WoWClass.PRIEST, WoWClass.WARLOCK];
+                          case 'leather': return [WoWClass.DRUID, WoWClass.MONK, WoWClass.ROGUE, WoWClass.DEMON_HUNTER];
+                          case 'mail': return [WoWClass.HUNTER, WoWClass.SHAMAN, WoWClass.EVOKER];
+                          case 'plate': return [WoWClass.WARRIOR, WoWClass.PALADIN, WoWClass.DEATH_KNIGHT];
+                          default: return [];
+                        }
+                      })();
+                      
+                      // Find main players wearing this armor type
+                      const mainPlayersWithArmor = group.players
+                        .filter(p => p.isMain && !p.isOrphaned && armorClasses.includes(p.className))
+                        .map(p => p.name);
+                      
+                      const hasPlayers = mainPlayersWithArmor.length > 0;
+                      const isHighlighted = highlightedArmorType === type && highlightedGroupIndex === groupIdx;
+                      
+                      return (
+                        <Tooltip 
+                          key={type} 
+                          content={`${ARMOR_DESCRIPTIONS[type] || ""}${hasPlayers ? `\n\nCurrent mains: ${mainPlayersWithArmor.join(', ')}` : ''}`}
+                        >
+                          <div 
+                            className={`bg-white/[0.02] border p-2 rounded-lg text-center cursor-help transition-all duration-200 relative ${
+                              hasPlayers 
+                                ? 'border-white/5 hover:border-indigo-500/50 hover:bg-indigo-500/5' 
+                                : 'border-white/5 opacity-60'
+                            } ${isHighlighted ? 'border-indigo-500/70 bg-indigo-500/10 shadow-[0_0_15px_rgba(79,70,229,0.3)]' : ''}`}
+                            onMouseEnter={() => {
+                              if (hasPlayers) {
+                                setHighlightedArmorType(type);
+                                setHighlightedGroupIndex(groupIdx);
+                              }
+                            }}
+                            onMouseLeave={() => {
+                              setHighlightedArmorType(null);
+                              setHighlightedGroupIndex(null);
+                            }}
+                          >
+                            <span className="block text-[8px] font-black uppercase text-slate-600 mb-1">{type}</span>
+                            <span className={`text-sm text-[20px] font-black ${
+                              hasPlayers 
+                                ? isHighlighted ? 'text-indigo-300' : 'text-white hover:text-indigo-300' 
+                                : 'text-slate-700'
+                            }`}>
+                              {count}
+                            </span>
+                            
+                            {/* Glow effect when highlighted */}
+                            {isHighlighted && (
+                              <div className="absolute inset-0 rounded-lg pointer-events-none">
+                                <div className="absolute inset-0 bg-indigo-500/10 rounded-lg blur-sm"></div>
+                              </div>
+                            )}
+                            
+                            {/* Indicator dot if there are players with this armor */}
+                            {hasPlayers && (
+                              <div className={`absolute top-1 right-1 w-1.5 h-1.5 rounded-full ${
+                                isHighlighted ? 'bg-indigo-400' : 'bg-indigo-500/60'
+                              }`}></div>
+                            )}
+                          </div>
+                        </Tooltip>
+                      );
+                    })}
                   </div>
                 </div>
 
+                {/* Key Utility section */}
                 <div className="bg-black/40 border border-white/5 rounded-xl p-4">
                   <h5 className="text-[9px] font-black uppercase tracking-widest text-slate-500 mb-4 flex items-center gap-2">
                       <Info size={12} className="text-indigo-500" /> Key Utility
@@ -944,6 +1077,7 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
         ))}
       </div>
 
+      {/* Edit member modal */}
       {editMember && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
           <div className="bg-[#0c0c0e] border border-white/10 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
@@ -1071,6 +1205,7 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
         </div>
       )}
 
+      {/* Copy setup dialog */}
       {showCopyDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
           <div className="bg-[#0c0c0e] border border-white/10 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
@@ -1135,6 +1270,7 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
         </div>
       )}
 
+      {/* Admin login dialog */}
       {showLoginDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
           <div className="bg-[#0c0c0e] border border-white/10 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">

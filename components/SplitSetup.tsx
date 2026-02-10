@@ -999,7 +999,7 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
                       return (
                         <Tooltip 
                           key={type} 
-                          content={`${ARMOR_DESCRIPTIONS[type] || ""}${hasPlayers ? `\n\nCurrent mains: ${mainPlayersWithArmor.join(', ')}` : ''}`}
+                          content={`${hasPlayers ? `\n\nCurrent mains: ${mainPlayersWithArmor.join(', ')}` : ''}`}
                         >
                           <div 
                             className={`bg-white/[0.02] border p-2 rounded-lg text-center cursor-help transition-all duration-200 relative ${

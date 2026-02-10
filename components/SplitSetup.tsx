@@ -617,7 +617,13 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
                     </span>
                   </div>
                 </div>
-                
+                  {/* Helpers count */}
+                {(group.helpers || []).length > 0 && (
+                  <div className="px-3 py-1 bg-amber-500/10 rounded-lg border border-amber-500/20 text-[10px] font-black uppercase tracking-widest text-amber-500 flex items-center gap-1.5">
+                    <HandHelping size={10} />
+                    {(group.helpers || []).length} Helpers
+                  </div>
+                )}
                 {/* deleted players count  */}
                 {group.players.filter(p => p.isOrphaned).length > 0 && (
                   <div className="px-3 py-1 bg-red-500/10 rounded-lg border border-red-500/20 text-[10px] font-black uppercase tracking-widest text-red-500 flex items-center gap-1.5">

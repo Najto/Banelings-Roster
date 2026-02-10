@@ -612,7 +612,7 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
                     </span>
                     <span className="text-slate-500">/</span>
                     <span className="text-slate-400">
-                      {group.players.filter(p => !p.isOrphaned && !p.isMain).length} Twinks
+                      {group.players.filter(p => !p.isOrphaned).length} Total
                     </span>
                   </div>
                 </div>

@@ -61,7 +61,7 @@ const BUFF_PROVIDERS: Record<string, WoWClass[]> = {
   "5% Attack Power": [WoWClass.WARRIOR],
   "5% Stamina": [WoWClass.PRIEST],
   "5% Phys DMG": [WoWClass.MONK],
-  "3% Magic DMG": [WoWClass.DEMON_HUNTER],
+  "35 Magic DMG": [WoWClass.DEMON_HUNTER],
   "Devo Aura": [WoWClass.PALADIN],
   "Skyfury": [WoWClass.SHAMAN],
   "Skyfury Totem": [WoWClass.SHAMAN],

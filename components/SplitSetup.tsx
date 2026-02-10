@@ -604,16 +604,26 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
                 <h3 className="text-xl font-black text-white uppercase tracking-tight">{group.name}</h3>
                 <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Average iLvl: <span className="text-indigo-400">{group.avgIlvl.toFixed(1)}</span> <span className="text-slate-700">(Active only)</span></p>
               </div>
-              <div className="flex gap-2">
-                  <div className="px-3 py-1 bg-black rounded-lg border border-white/5 text-[10px] font-black uppercase tracking-widest text-slate-400">
-                      {group.players.filter(p => !p.isOrphaned).length} Active Chars
+              <div className="flex flex-col items-end gap-1">
+                <div className="px-3 py-1 bg-black rounded-lg border border-white/5 text-[10px] font-black uppercase tracking-widest">
+                  <div className="flex items-center gap-2">
+                    <span className="text-amber-500">
+                      {group.players.filter(p => !p.isOrphaned && p.isMain).length} Mains
+                    </span>
+                    <span className="text-slate-500">/</span>
+                    <span className="text-slate-400">
+                      {group.players.filter(p => !p.isOrphaned && !p.isMain).length} Twinks
+                    </span>
                   </div>
-                  {group.players.filter(p => p.isOrphaned).length > 0 && (
-                    <div className="px-3 py-1 bg-red-500/10 rounded-lg border border-red-500/20 text-[10px] font-black uppercase tracking-widest text-red-500 flex items-center gap-1.5">
-                      <AlertTriangle size={10} />
-                      {group.players.filter(p => p.isOrphaned).length} Deleted
-                    </div>
-                  )}
+                </div>
+                
+                {/* You can keep the deleted players count if needed */}
+                {group.players.filter(p => p.isOrphaned).length > 0 && (
+                  <div className="px-3 py-1 bg-red-500/10 rounded-lg border border-red-500/20 text-[10px] font-black uppercase tracking-widest text-red-500 flex items-center gap-1.5">
+                    <AlertTriangle size={10} />
+                    {group.players.filter(p => p.isOrphaned).length} Deleted
+                  </div>
+                )}
               </div>
             </div>
 

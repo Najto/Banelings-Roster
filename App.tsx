@@ -199,11 +199,14 @@ const App: React.FC = () => {
             getCharacterQuests(blizzToken, realm, char.name),
           ].map(p => p.catch(() => null)));
 
-          [blizzPvPSolo, blizzPvP2v2, blizzPvP3v3] = await Promise.all([
-            getCharacterPvPBracket(blizzToken, realm, char.name, 'shuffle'),
-            getCharacterPvPBracket(blizzToken, realm, char.name, '2v2'),
-            getCharacterPvPBracket(blizzToken, realm, char.name, '3v3'),
-          ].map(p => p.catch(() => null)));
+          if (blizzPvP?.brackets) {
+            const hrefs = (blizzPvP.brackets as any[]).map((b: any) => b.href || '');
+            [blizzPvPSolo, blizzPvP2v2, blizzPvP3v3] = await Promise.all([
+              hrefs.some((h: string) => h.includes('shuffle')) ? getCharacterPvPBracket(blizzToken, realm, char.name, 'shuffle') : Promise.resolve(null),
+              hrefs.some((h: string) => h.includes('2v2')) ? getCharacterPvPBracket(blizzToken, realm, char.name, '2v2') : Promise.resolve(null),
+              hrefs.some((h: string) => h.includes('3v3')) ? getCharacterPvPBracket(blizzToken, realm, char.name, '3v3') : Promise.resolve(null),
+            ].map(p => p.catch(() => null)));
+          }
         }
 
         const wclData = await fetchWarcraftLogsData(char.name, realm).catch(() => null);
@@ -712,11 +715,14 @@ const App: React.FC = () => {
             getCharacterQuests(blizzToken, realm, char.name),
           ].map(p => p.catch(() => null)));
 
-          [blizzPvPSolo, blizzPvP2v2, blizzPvP3v3] = await Promise.all([
-            getCharacterPvPBracket(blizzToken, realm, char.name, 'shuffle'),
-            getCharacterPvPBracket(blizzToken, realm, char.name, '2v2'),
-            getCharacterPvPBracket(blizzToken, realm, char.name, '3v3'),
-          ].map(p => p.catch(() => null)));
+          if (blizzPvP?.brackets) {
+            const hrefs = (blizzPvP.brackets as any[]).map((b: any) => b.href || '');
+            [blizzPvPSolo, blizzPvP2v2, blizzPvP3v3] = await Promise.all([
+              hrefs.some((h: string) => h.includes('shuffle')) ? getCharacterPvPBracket(blizzToken, realm, char.name, 'shuffle') : Promise.resolve(null),
+              hrefs.some((h: string) => h.includes('2v2')) ? getCharacterPvPBracket(blizzToken, realm, char.name, '2v2') : Promise.resolve(null),
+              hrefs.some((h: string) => h.includes('3v3')) ? getCharacterPvPBracket(blizzToken, realm, char.name, '3v3') : Promise.resolve(null),
+            ].map(p => p.catch(() => null)));
+          }
         }
 
         // 3. Fetch WarcraftLogs data

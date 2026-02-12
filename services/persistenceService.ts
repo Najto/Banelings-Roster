@@ -167,6 +167,103 @@ export const persistenceService = {
     }
   },
 
+  buildCharacterPayload(char: Character, playerName: string, role: PlayerRole, splitOrder: number) {
+    return {
+      character_name: char.name,
+      realm: (char.server || 'blackhand').toLowerCase(),
+      player_name: playerName,
+      role: role,
+      class_name: char.className,
+      is_main: !!char.isMain,
+      split_order: splitOrder,
+      enriched_data: {
+        spec: char.spec,
+        race: char.race,
+        itemLevel: char.itemLevel,
+        mPlusRating: char.mPlusRating,
+        weeklyTenPlusCount: char.weeklyTenPlusCount,
+        raidProgression: char.raidProgression,
+        gearAudit: char.gearAudit,
+        thumbnailUrl: char.thumbnailUrl,
+        profileUrl: char.profileUrl,
+        weeklyHistory: char.weeklyHistory,
+        recentRuns: char.recentRuns,
+        collections: char.collections,
+        currencies: char.currencies,
+        pvp: char.pvp,
+        reputations: char.reputations,
+        activities: char.activities,
+        professions: char.professions,
+        warcraftLogs: char.warcraftLogs,
+        mPlusRanks: char.mPlusRanks,
+        raidBossKills: char.raidBossKills,
+        raidKillBaseline: char.raidKillBaseline,
+        weeklyRaidBossKills: char.weeklyRaidBossKills,
+        weeklyRaidKillDetails: char.weeklyRaidKillDetails,
+        guild: char.guild,
+      },
+      last_enriched_at: new Date().toISOString(),
+      enrichment_status: 'success'
+    };
+  },
+
+  async bulkUpsertCharacterData(
+    entries: Array<{ char: Character; playerName: string; role: PlayerRole }>
+  ): Promise<void> {
+    if (entries.length === 0) return;
+
+    try {
+      const { data: existingChars } = await supabase
+        .from('character_data')
+        .select('character_name, realm, player_name, is_main, split_order');
+
+      const existingMap = new Map(
+        (existingChars || []).map((c: any) => [
+          `${c.character_name.toLowerCase()}:${c.realm.toLowerCase()}`,
+          c,
+        ])
+      );
+
+      const splitCounters = new Map<string, number>();
+      for (const ec of existingChars || []) {
+        if (!ec.is_main) {
+          const current = splitCounters.get(ec.player_name) || 0;
+          splitCounters.set(ec.player_name, Math.max(current, (ec.split_order || 0) + 1));
+        }
+      }
+
+      const payloads = entries.map(({ char, playerName, role }) => {
+        const key = `${char.name.toLowerCase()}:${(char.server || 'blackhand').toLowerCase()}`;
+        const existing = existingMap.get(key);
+
+        let splitOrder = 0;
+        if (existing) {
+          splitOrder = existing.split_order || 0;
+        } else if (!char.isMain) {
+          const next = splitCounters.get(playerName) || 0;
+          splitCounters.set(playerName, next + 1);
+          splitOrder = next;
+        }
+
+        return this.buildCharacterPayload(char, playerName, role, splitOrder);
+      });
+
+      const BATCH_SIZE = 50;
+      for (let i = 0; i < payloads.length; i += BATCH_SIZE) {
+        const batch = payloads.slice(i, i + BATCH_SIZE);
+        const { error } = await supabase
+          .from('character_data')
+          .upsert(batch, { onConflict: 'character_name,realm' });
+
+        if (error) {
+          console.error(`Bulk upsert batch ${i / BATCH_SIZE + 1} failed:`, error);
+        }
+      }
+    } catch (error) {
+      console.error('Bulk upsert failed:', error);
+    }
+  },
+
   // CHARACTER_DATA TABLE PERSISTENCE (Core Roster Data)
   async fetchCharactersFromDb(): Promise<any[]> {
     try {

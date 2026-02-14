@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { INITIAL_ROSTER } from './constants';
-import { Player, MemberMapping, PlayerRole, SplitGroup, Character, SlotAudit, GearAudit, WoWClass } from './types';
+import { Player, MemberMapping, PlayerRole, SplitGroup, Character, SlotAudit, GearAudit, WoWClass, RaidConfig, DEFAULT_RAID_CONFIG } from './types';
 import { RosterTable } from './components/RosterTable';
 import { StatOverview } from './components/StatOverview';
 import { AnalyticsDashboard } from './components/AnalyticsDashboard';
@@ -78,6 +78,7 @@ const App: React.FC = () => {
     mythic_ilvl: 626,
     heroic_ilvl: 613,
   });
+  const [raidConfig, setRaidConfig] = useState<RaidConfig>(DEFAULT_RAID_CONFIG);
   const [activeTab, setActiveTab] = useState<'roster' | 'audit' | 'analytics' | 'splits' | 'settings'>('roster');
   const [rosterViewMode, setRosterViewMode] = useState<'table' | 'overview' | 'detail'>('overview');
   const [selectedMemberName, setSelectedMemberName] = useState<string | null>(null);
@@ -181,7 +182,7 @@ const App: React.FC = () => {
 
       const processChar = async (char: Character): Promise<Character> => {
         const realm = char.server || "Blackhand";
-        const rio = await fetchRaiderIOData(char.name, realm);
+        const rio = await fetchRaiderIOData(char.name, realm, raidConfig.raidSlug, raidConfig.totalBosses);
 
         let blizzSum = null, blizzStat = null, blizzAch = null, blizzColl = null, blizzProf = null, blizzEquip = null;
         let blizzPvP = null, blizzPvPSolo = null, blizzPvP2v2 = null, blizzPvP3v3 = null, blizzReps = null, blizzQuests = null;
@@ -209,7 +210,7 @@ const App: React.FC = () => {
           }
         }
 
-        const wclData = await fetchWarcraftLogsData(char.name, realm).catch(() => null);
+        const wclData = await fetchWarcraftLogsData(char.name, realm, 'eu', raidConfig.wclZoneId).catch(() => null);
 
         const repFactionMap: Record<string, string> = {
           'Council of Dornogal': 'dornogal',
@@ -431,7 +432,7 @@ const App: React.FC = () => {
       setIsUpdating(false);
       isSyncingRef.current = false;
     }
-  }, []);
+  }, [raidConfig]);
 
   // Helper to format last sync time
   const formatLastSyncTime = useCallback((date: Date | null): string => {
@@ -492,6 +493,9 @@ const App: React.FC = () => {
         const thresholds = await configService.getIlvlThresholds();
         setIlvlThresholds(thresholds);
         setMinIlvl(thresholds.min_ilvl);
+
+        const raid = await configService.getCurrentRaid();
+        setRaidConfig(raid);
 
         const migrationCheck = await persistenceService.checkMigrationNeeded();
         if (migrationCheck.needed && !localStorage.getItem('migration_dismissed')) {
@@ -568,12 +572,14 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (activeTab !== 'settings') {
-      const reloadThresholds = async () => {
+      const reloadConfig = async () => {
         const thresholds = await configService.getIlvlThresholds();
         setIlvlThresholds(thresholds);
         setMinIlvl(thresholds.min_ilvl);
+        const raid = await configService.getCurrentRaid();
+        setRaidConfig(raid);
       };
-      reloadThresholds();
+      reloadConfig();
     }
   }, [activeTab]);
 
@@ -704,13 +710,11 @@ const App: React.FC = () => {
       };
 
       const processChar = async (char: Character) => {
-        // 1. Fetch Raider.io Data
-        const rio = await fetchRaiderIOData(char.name, realm);
+        const rio = await fetchRaiderIOData(char.name, realm, raidConfig.raidSlug, raidConfig.totalBosses);
 
         let blizzSum = null, blizzStat = null, blizzAch = null, blizzColl = null, blizzProf = null, blizzEquip = null;
         let blizzPvP = null, blizzPvPSolo = null, blizzPvP2v2 = null, blizzPvP3v3 = null, blizzReps = null, blizzQuests = null;
 
-        // 2. Fetch Blizzard Data (if token available)
         if (blizzToken) {
           await new Promise(r => setTimeout(r, 100));
           [blizzSum, blizzStat, blizzAch, blizzColl, blizzProf, blizzEquip, blizzPvP, blizzReps, blizzQuests] = await Promise.all([
@@ -735,8 +739,7 @@ const App: React.FC = () => {
           }
         }
 
-        // 3. Fetch WarcraftLogs data
-        const wclData = await fetchWarcraftLogsData(char.name, realm).catch(() => null);
+        const wclData = await fetchWarcraftLogsData(char.name, realm, 'eu', raidConfig.wclZoneId).catch(() => null);
 
         const repFactionMap: Record<string, string> = {
           'Council of Dornogal': 'dornogal',
@@ -944,7 +947,7 @@ const App: React.FC = () => {
     } finally {
       setIsUpdating(false);
     }
-  }, [roster]);
+  }, [roster, raidConfig]);
 
   return (
     <div className="min-h-screen wow-gradient flex flex-col md:flex-row overflow-hidden h-screen text-slate-200">

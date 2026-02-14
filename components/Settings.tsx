@@ -1,10 +1,11 @@
 
 import React, { useState, useEffect } from 'react';
-import { FileSpreadsheet, ExternalLink, Users, AlertCircle, CheckCircle, Loader2, Sliders, Save, RefreshCw, Download, X, ChevronDown, ChevronUp } from 'lucide-react';
+import { FileSpreadsheet, ExternalLink, Users, AlertCircle, CheckCircle, Loader2, Sliders, Save, RefreshCw, Download, X, ChevronDown, ChevronUp, Swords } from 'lucide-react';
 import { persistenceService } from '../services/persistenceService';
 import { configService, IlvlThresholds } from '../services/configService';
 import { characterImportService } from '../services/characterImportService';
-import { WoWClass, PlayerRole } from '../types';
+import { fetchWclZones, WclZone } from '../services/warcraftlogsService';
+import { WoWClass, PlayerRole, RaidConfig, KNOWN_RAIDS, DEFAULT_RAID_CONFIG } from '../types';
 
 const SPREADSHEET_WEB_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vS8AIcE-2b-IJohqlFiUCp0laqabWOptLdAk1OpL9o8LptWglWr2rMwnV-7YM6dwwGiEO9ruz7triLa/pubhtml";
 
@@ -39,6 +40,12 @@ export const Settings: React.FC<SettingsProps> = ({ onRosterUpdate }) => {
   const [savingThresholds, setSavingThresholds] = useState(false);
   const [thresholdsSaved, setThresholdsSaved] = useState(false);
 
+  const [raidConfig, setRaidConfig] = useState<RaidConfig>(DEFAULT_RAID_CONFIG);
+  const [savingRaid, setSavingRaid] = useState(false);
+  const [raidSaved, setRaidSaved] = useState(false);
+  const [wclZones, setWclZones] = useState<WclZone[]>([]);
+  const [loadingZones, setLoadingZones] = useState(false);
+
   // Spreadsheet import state
   const [spreadsheetData, setSpreadsheetData] = useState<any>(null);
   const [loadingSpreadsheet, setLoadingSpreadsheet] = useState(false);
@@ -51,6 +58,7 @@ export const Settings: React.FC<SettingsProps> = ({ onRosterUpdate }) => {
   useEffect(() => {
     checkMigrationStatus();
     loadThresholds();
+    loadRaidConfig();
     checkSpreadsheet();
   }, []);
 
@@ -62,6 +70,48 @@ export const Settings: React.FC<SettingsProps> = ({ onRosterUpdate }) => {
   const loadThresholds = async () => {
     const loadedThresholds = await configService.getIlvlThresholds();
     setThresholds(loadedThresholds);
+  };
+
+  const loadRaidConfig = async () => {
+    const loaded = await configService.getCurrentRaid();
+    setRaidConfig(loaded);
+    setLoadingZones(true);
+    const zones = await fetchWclZones();
+    setWclZones(zones);
+    setLoadingZones(false);
+  };
+
+  const handleRaidSelect = (raidName: string) => {
+    const allOptions = buildRaidOptions();
+    const match = allOptions.find(r => r.raidName === raidName);
+    if (match) setRaidConfig(match);
+  };
+
+  const saveRaidConfig = async () => {
+    setSavingRaid(true);
+    setRaidSaved(false);
+    const success = await configService.updateCurrentRaid(raidConfig);
+    setSavingRaid(false);
+    if (success) {
+      setRaidSaved(true);
+      setTimeout(() => setRaidSaved(false), 3000);
+    }
+  };
+
+  const buildRaidOptions = (): RaidConfig[] => {
+    const known = [...KNOWN_RAIDS];
+    const knownIds = new Set(known.map(r => r.wclZoneId));
+    for (const zone of wclZones) {
+      if (!knownIds.has(zone.id)) {
+        known.push({
+          raidName: zone.name,
+          raidSlug: zone.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
+          wclZoneId: zone.id,
+          totalBosses: 8,
+        });
+      }
+    }
+    return known;
   };
 
   const saveThresholds = async () => {
@@ -503,6 +553,117 @@ export const Settings: React.FC<SettingsProps> = ({ onRosterUpdate }) => {
           </div>
         )}
       </div>
+      {/* Current Raid Tier Section */}
+      <div className="bg-[#0c0c0e] border border-white/5 rounded-2xl p-8 shadow-2xl">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="p-3 bg-red-500/10 rounded-xl">
+            <Swords className="text-red-400" size={24} />
+          </div>
+          <div>
+            <h2 className="text-2xl font-black text-white uppercase tracking-tight">Current Raid Tier</h2>
+            <p className="text-slate-500 text-sm font-medium">Select the active raid for progression tracking and WCL data</p>
+          </div>
+        </div>
+
+        <div className="space-y-6">
+          <div className="bg-black/40 border border-white/10 rounded-xl p-5">
+            <label className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-3 block">
+              Active Raid
+            </label>
+            <div className="relative">
+              <select
+                value={raidConfig.raidName}
+                onChange={(e) => handleRaidSelect(e.target.value)}
+                className="w-full bg-black/60 border border-white/10 rounded-lg px-4 py-3 text-white text-sm font-bold focus:outline-none focus:ring-2 focus:ring-red-500/50 appearance-none cursor-pointer"
+              >
+                {buildRaidOptions().map(r => (
+                  <option key={r.wclZoneId} value={r.raidName}>{r.raidName}</option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" size={16} />
+            </div>
+            {loadingZones && (
+              <div className="flex items-center gap-2 mt-2">
+                <Loader2 className="text-slate-500 animate-spin" size={12} />
+                <span className="text-slate-600 text-xs">Loading additional zones from WarcraftLogs...</span>
+              </div>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-black/40 border border-white/10 rounded-xl p-5">
+              <label className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-3 block">
+                WCL Zone ID
+              </label>
+              <input
+                type="number"
+                value={raidConfig.wclZoneId}
+                onChange={(e) => setRaidConfig({ ...raidConfig, wclZoneId: parseInt(e.target.value) || 0 })}
+                className="w-full bg-black/60 border border-white/10 rounded-lg px-4 py-3 text-white text-lg font-black focus:outline-none focus:ring-2 focus:ring-red-500/50"
+              />
+              <p className="text-slate-600 text-xs mt-2">WarcraftLogs zone identifier</p>
+            </div>
+
+            <div className="bg-black/40 border border-white/10 rounded-xl p-5">
+              <label className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-3 block">
+                Raider.IO Slug
+              </label>
+              <input
+                type="text"
+                value={raidConfig.raidSlug}
+                onChange={(e) => setRaidConfig({ ...raidConfig, raidSlug: e.target.value })}
+                className="w-full bg-black/60 border border-white/10 rounded-lg px-4 py-3 text-white text-sm font-bold focus:outline-none focus:ring-2 focus:ring-red-500/50"
+              />
+              <p className="text-slate-600 text-xs mt-2">Used to match raid_progression key</p>
+            </div>
+
+            <div className="bg-black/40 border border-white/10 rounded-xl p-5">
+              <label className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-3 block">
+                Total Bosses
+              </label>
+              <input
+                type="number"
+                value={raidConfig.totalBosses}
+                onChange={(e) => setRaidConfig({ ...raidConfig, totalBosses: parseInt(e.target.value) || 1 })}
+                className="w-full bg-black/60 border border-white/10 rounded-lg px-4 py-3 text-white text-lg font-black focus:outline-none focus:ring-2 focus:ring-red-500/50"
+              />
+              <p className="text-slate-600 text-xs mt-2">Drives AOTC/CE calculation</p>
+            </div>
+          </div>
+
+          <div className="bg-slate-800/30 border border-slate-700/30 rounded-xl p-4">
+            <p className="text-slate-500 text-xs">
+              Update this setting when a new raid tier is released. The boss count determines when AOTC (all heroic) and CE (all mythic) are flagged. WCL zone ID scopes parse rankings and weekly kill tracking to the correct raid.
+            </p>
+          </div>
+
+          {raidSaved && (
+            <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-4 flex items-center gap-3">
+              <CheckCircle className="text-emerald-400" size={20} />
+              <span className="text-emerald-300 font-bold text-sm">Raid configuration saved successfully</span>
+            </div>
+          )}
+
+          <button
+            onClick={saveRaidConfig}
+            disabled={savingRaid}
+            className="w-full bg-red-600 hover:bg-red-500 disabled:bg-slate-700 disabled:text-slate-500 text-white px-5 py-3 rounded-xl font-black text-sm uppercase tracking-widest flex items-center justify-center gap-2 transition-all shadow-lg shadow-red-600/20 disabled:shadow-none"
+          >
+            {savingRaid ? (
+              <>
+                <Loader2 size={16} className="animate-spin" />
+                Saving...
+              </>
+            ) : (
+              <>
+                <Save size={16} />
+                Save Raid Config
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+
       {/* Item Level Thresholds Section */}
       <div className="bg-[#0c0c0e] border border-white/5 rounded-2xl p-8 shadow-2xl">
         <div className="flex items-center gap-3 mb-6">

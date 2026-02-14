@@ -54,6 +54,23 @@ export const ROLE_PRIORITY: Record<PlayerRole, number> = {
   [PlayerRole.UNKNOWN]: 5
 };
 
+export interface RaidConfig {
+  raidName: string;
+  raidSlug: string;
+  wclZoneId: number;
+  totalBosses: number;
+}
+
+export const KNOWN_RAIDS: RaidConfig[] = [
+  { raidName: 'Liberation of Undermine', raidSlug: 'liberation-of-undermine', wclZoneId: 42, totalBosses: 8 },
+  { raidName: "Nerub-ar Palace", raidSlug: 'nerubar-palace', wclZoneId: 38, totalBosses: 8 },
+  { raidName: "Amirdrassil, the Dream's Hope", raidSlug: 'amirdrassil-the-dreams-hope', wclZoneId: 35, totalBosses: 9 },
+  { raidName: 'Aberrus, the Shadowed Crucible', raidSlug: 'aberrus-the-shadowed-crucible', wclZoneId: 33, totalBosses: 9 },
+  { raidName: 'Vault of the Incarnates', raidSlug: 'vault-of-the-incarnates', wclZoneId: 31, totalBosses: 8 },
+];
+
+export const DEFAULT_RAID_CONFIG: RaidConfig = KNOWN_RAIDS[0];
+
 export interface MPlusRun {
   dungeon: string;
   short_name: string;

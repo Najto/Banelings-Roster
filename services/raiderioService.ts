@@ -112,7 +112,7 @@ const determineTrack = (ilvl: number): string => {
  * retrieves: Score, Recent Runs, Raid Progress, and Basic Gear (Enchants/Gems).
  * Note: Gear data here is less accurate than Blizzard API, but serves as a fallback or seed.
  */
-export const fetchRaiderIOData = async (name: string, realm: string): Promise<Partial<Character> | null> => {
+export const fetchRaiderIOData = async (name: string, realm: string, raidSlug?: string, totalBosses?: number): Promise<Partial<Character> | null> => {
   try {
     const encodedRealm = encodeURIComponent(realm.toLowerCase());
     const encodedName = encodeURIComponent(name.toLowerCase());
@@ -139,17 +139,19 @@ export const fetchRaiderIOData = async (name: string, realm: string): Promise<Pa
     const weeklyHistory = calculateWeeklyHistory(allRuns, resetTime);
     const weeklyTenPlusCount = weeklyHistory[0];
 
-    const raidKey = Object.keys(data.raid_progression || {})[0];
+    const raidKeys = Object.keys(data.raid_progression || {});
+    const raidKey = (raidSlug && raidKeys.includes(raidSlug)) ? raidSlug : raidKeys[0];
     const raidInfo = data.raid_progression?.[raidKey];
+    const bossCap = totalBosses || raidInfo?.total_bosses || 8;
     const raidProgression: RaidProgression | undefined = raidInfo ? {
       summary: raidInfo.summary,
       normal_kills: raidInfo.normal_bosses_killed,
       heroic_kills: raidInfo.heroic_bosses_killed,
       mythic_kills: raidInfo.mythic_bosses_killed,
       total_bosses: raidInfo.total_bosses,
-      completions: Math.floor(raidInfo.mythic_bosses_killed / 8) || 0,
-      aotc: raidInfo.heroic_bosses_killed >= 8,
-      ce: raidInfo.mythic_bosses_killed >= 8
+      completions: Math.floor(raidInfo.mythic_bosses_killed / bossCap) || 0,
+      aotc: raidInfo.heroic_bosses_killed >= bossCap,
+      ce: raidInfo.mythic_bosses_killed >= bossCap
     } : undefined;
 
     const gearItems = data.gear?.items || {};

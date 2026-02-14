@@ -31,10 +31,38 @@ export const isWCLConfigured = (): boolean => {
   return !!SUPABASE_URL && !!SUPABASE_ANON_KEY;
 };
 
+export interface WclZone {
+  id: number;
+  name: string;
+}
+
+export const fetchWclZones = async (expansionId: number = 11): Promise<WclZone[]> => {
+  if (!isWCLConfigured()) return [];
+
+  try {
+    const url = `${SUPABASE_URL}/functions/v1/warcraftlogs`;
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ action: 'list-zones', expansionId }),
+    });
+
+    if (!response.ok) return [];
+    const data = await response.json();
+    return (data.zones || []) as WclZone[];
+  } catch {
+    return [];
+  }
+};
+
 export const fetchWarcraftLogsData = async (
   name: string,
   server: string,
-  region: string = 'eu'
+  region: string = 'eu',
+  wclZoneId?: number
 ): Promise<WarcraftLogsData | null> => {
   if (!isWCLConfigured()) return null;
 
@@ -50,6 +78,7 @@ export const fetchWarcraftLogsData = async (
         characterName: name.toLowerCase(),
         serverSlug: server.toLowerCase().replace(/\s+/g, '-'),
         serverRegion: region,
+        ...(wclZoneId ? { wclZoneId } : {}),
       }),
     });
 

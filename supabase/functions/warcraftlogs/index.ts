@@ -77,21 +77,35 @@ async function queryWCL(
   return res.json();
 }
 
-const RANKINGS_QUERY = `
-  query ($name: String!, $server: String!, $region: String!) {
-    characterData {
-      character(name: $name, serverSlug: $server, serverRegion: $region) {
-        mythic: zoneRankings(difficulty: 5)
-        heroic: zoneRankings(difficulty: 4)
-        normal: zoneRankings(difficulty: 3)
-        recentReports(limit: 15) {
-          data {
-            code
-            startTime
-            endTime
-            zone { id name }
+function buildRankingsQuery(zoneId?: number): string {
+  const zoneArg = zoneId ? `zoneID: ${zoneId}, ` : '';
+  return `
+    query ($name: String!, $server: String!, $region: String!) {
+      characterData {
+        character(name: $name, serverSlug: $server, serverRegion: $region) {
+          mythic: zoneRankings(${zoneArg}difficulty: 5)
+          heroic: zoneRankings(${zoneArg}difficulty: 4)
+          normal: zoneRankings(${zoneArg}difficulty: 3)
+          recentReports(limit: 15) {
+            data {
+              code
+              startTime
+              endTime
+              zone { id name }
+            }
           }
         }
+      }
+    }
+  `;
+}
+
+const ZONES_QUERY = `
+  query ($expansionId: Int!) {
+    worldData {
+      zones(expansion_id: $expansionId) {
+        id
+        name
       }
     }
   }
@@ -105,7 +119,17 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const { characterName, serverSlug, serverRegion } = await req.json();
+    const body = await req.json();
+
+    if (body.action === "list-zones") {
+      const token = await getAccessToken();
+      const expansionId = body.expansionId || 11;
+      const result = await queryWCL(token, ZONES_QUERY, { expansionId });
+      const zones = result?.data?.worldData?.zones || [];
+      return jsonResponse({ zones });
+    }
+
+    const { characterName, serverSlug, serverRegion, wclZoneId } = body;
 
     if (!characterName || !serverSlug || !serverRegion) {
       return jsonResponse({ error: "Missing characterName, serverSlug, or serverRegion" }, 400);
@@ -114,7 +138,8 @@ Deno.serve(async (req: Request) => {
     const token = await getAccessToken();
     const resetMs = getResetTimestamp();
 
-    const result = await queryWCL(token, RANKINGS_QUERY, {
+    const rankingsQuery = buildRankingsQuery(wclZoneId);
+    const result = await queryWCL(token, rankingsQuery, {
       name: characterName,
       server: serverSlug,
       region: serverRegion,
@@ -151,7 +176,11 @@ Deno.serve(async (req: Request) => {
 
     const recentReports = character.recentReports?.data || [];
     const reportsThisWeek = recentReports.filter(
-      (r: { startTime: number }) => r.startTime >= resetMs
+      (r: { startTime: number; zone?: { id: number } }) => {
+        if (r.startTime < resetMs) return false;
+        if (wclZoneId && r.zone?.id && r.zone.id !== wclZoneId) return false;
+        return true;
+      }
     );
 
     if (reportsThisWeek.length > 0) {

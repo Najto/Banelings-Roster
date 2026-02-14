@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient';
+import { RaidConfig, DEFAULT_RAID_CONFIG } from '../types';
 
 export interface IlvlThresholds {
   min_ilvl: number;
@@ -57,6 +58,54 @@ export const configService = {
       return true;
     } catch (error) {
       console.error('Error in updateIlvlThresholds:', error);
+      return false;
+    }
+  },
+
+  async getCurrentRaid(): Promise<RaidConfig> {
+    try {
+      const { data, error } = await supabase
+        .from('configuration')
+        .select('value')
+        .eq('key', 'current_raid')
+        .maybeSingle();
+
+      if (error) {
+        console.error('Error fetching current raid:', error);
+        return DEFAULT_RAID_CONFIG;
+      }
+
+      if (!data) {
+        return DEFAULT_RAID_CONFIG;
+      }
+
+      return data.value as RaidConfig;
+    } catch (error) {
+      console.error('Error in getCurrentRaid:', error);
+      return DEFAULT_RAID_CONFIG;
+    }
+  },
+
+  async updateCurrentRaid(raid: RaidConfig): Promise<boolean> {
+    try {
+      const { error } = await supabase
+        .from('configuration')
+        .upsert({
+          key: 'current_raid',
+          value: raid,
+          updated_at: new Date().toISOString(),
+        }, {
+          onConflict: 'key'
+        });
+
+      if (error) {
+        console.error('Error updating current raid:', error);
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Error in updateCurrentRaid:', error);
       return false;
     }
   },

@@ -144,6 +144,15 @@ export const fetchRaiderIOData = async (name: string, realm: string, raidSlug?: 
     const raidKeys = Object.keys(data.raid_progression || {});
     const raidKey = (raidSlug && raidKeys.includes(raidSlug)) ? raidSlug : raidKeys[0];
     const raidInfo = data.raid_progression?.[raidKey];
+
+    console.log(`[RaiderIO] Fetching data for ${name}-${realm}`);
+    console.log(`[RaiderIO] Requested raidSlug: ${raidSlug}`);
+    console.log(`[RaiderIO] Available raid keys:`, raidKeys);
+    console.log(`[RaiderIO] Selected raidKey: ${raidKey}`);
+    console.log(`[RaiderIO] RaidInfo structure:`, JSON.stringify(raidInfo, null, 2));
+    console.log(`[RaiderIO] Bosses array exists:`, !!raidInfo?.bosses);
+    console.log(`[RaiderIO] Bosses array length:`, raidInfo?.bosses?.length);
+
     const bossCap = totalBosses || raidInfo?.total_bosses || 8;
     const raidProgression: RaidProgression | undefined = raidInfo ? {
       summary: raidInfo.summary,
@@ -255,15 +264,22 @@ export const fetchRaiderIOData = async (name: string, realm: string, raidSlug?: 
 
     const raidBossKills: RaidBossKill[] = [];
     if (raidInfo?.bosses) {
+      console.log(`[RaiderIO] Processing ${raidInfo.bosses.length} bosses`);
       for (const boss of raidInfo.bosses) {
-        raidBossKills.push({
+        const bossKill = {
           name: boss.slug || boss.name || 'Unknown',
           normal: boss.normal_kills || 0,
           heroic: boss.heroic_kills || 0,
           mythic: boss.mythic_kills || 0,
-        });
+        };
+        console.log(`[RaiderIO] Boss: ${bossKill.name} - N:${bossKill.normal} H:${bossKill.heroic} M:${bossKill.mythic}`);
+        raidBossKills.push(bossKill);
       }
+    } else {
+      console.log(`[RaiderIO] No bosses array found in raidInfo`);
     }
+
+    console.log(`[RaiderIO] Final raidBossKills count: ${raidBossKills.length}`);
 
     return {
       spec: data.active_spec_name,

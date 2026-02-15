@@ -4,6 +4,7 @@ import { fetchBlizzardToken, getCharacterSummary, getCharacterStats, getCharacte
 import { fetchRaiderIOData, getCurrentResetTime, computeWeeklyRaidKills } from './raiderioService';
 import { fetchWarcraftLogsData } from './warcraftlogsService';
 import { persistenceService } from './persistenceService';
+import { configService } from './configService';
 
 const ENCHANTABLE_TYPES = ['BACK', 'CHEST', 'WRIST', 'LEGS', 'FEET', 'FINGER', 'MAIN_HAND', 'OFF_HAND', 'TWO_HAND'];
 const TIER_TYPES = ['HEAD', 'SHOULDER', 'CHEST', 'HANDS', 'LEGS'];
@@ -101,8 +102,9 @@ export const enrichCharacter = async (
       };
     }
 
-    // Step 3: Fetch Raider.io data
-    const rio = await fetchRaiderIOData(name, normalizedRealm);
+    // Step 3: Fetch current raid config and Raider.io data
+    const raidConfig = await configService.getCurrentRaid();
+    const rio = await fetchRaiderIOData(name, normalizedRealm, raidConfig.raidSlug, raidConfig.totalBosses);
 
     // Step 4: Fetch all Blizzard data in parallel
     await new Promise(r => setTimeout(r, 100));

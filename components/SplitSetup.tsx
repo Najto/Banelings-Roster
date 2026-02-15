@@ -105,6 +105,54 @@ const ARMOR_DESCRIPTIONS: Record<string, string> = {
   "plate": "Warriors, Paladins, Death Knights"
 };
 
+// Color mapping for each armor type (Cloth: Violet/Blue, Leather: Green, Mail: Cyan, Plate: Gold/Red)
+const ARMOR_COLORS: Record<string, {
+  border: string,
+  bg: string,
+  shadow: string,
+  text: string,
+  hoverBorder: string,
+  hoverBg: string,
+  indicator: string
+}> = {
+  "cloth": {
+    border: "border-violet-500/70",
+    bg: "bg-violet-500/10",
+    shadow: "shadow-[0_0_15px_rgba(139,92,246,0.4)]",
+    text: "text-violet-300",
+    hoverBorder: "hover:border-violet-500/50",
+    hoverBg: "hover:bg-violet-500/5",
+    indicator: "bg-violet-400"
+  },
+  "leather": {
+    border: "border-emerald-600/70",
+    bg: "bg-emerald-600/10",
+    shadow: "shadow-[0_0_15px_rgba(16,185,129,0.4)]",
+    text: "text-emerald-300",
+    hoverBorder: "hover:border-emerald-600/50",
+    hoverBg: "hover:bg-emerald-600/5",
+    indicator: "bg-emerald-400"
+  },
+  "mail": {
+    border: "border-cyan-500/70",
+    bg: "bg-cyan-500/10",
+    shadow: "shadow-[0_0_15px_rgba(6,182,212,0.4)]",
+    text: "text-cyan-300",
+    hoverBorder: "hover:border-cyan-500/50",
+    hoverBg: "hover:bg-cyan-500/5",
+    indicator: "bg-cyan-400"
+  },
+  "plate": {
+    border: "border-amber-500/70",
+    bg: "bg-amber-500/10",
+    shadow: "shadow-[0_0_15px_rgba(239,68,68,0.4)]",
+    text: "text-amber-300",
+    hoverBorder: "hover:border-amber-500/50",
+    hoverBg: "hover:bg-amber-500/5",
+    indicator: "bg-amber-400"
+  }
+};
+
 // Helper function to determine armor type for a given class
 const getArmorTypeForClass = (className: WoWClass): string => {
   if ([WoWClass.MAGE, WoWClass.PRIEST, WoWClass.WARLOCK].includes(className)) return 'cloth';
@@ -183,6 +231,10 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
   // NEW: State for armor hover highlighting
   const [highlightedArmorType, setHighlightedArmorType] = useState<string | null>(null);
   const [highlightedGroupIndex, setHighlightedGroupIndex] = useState<number | null>(null);
+
+  // NEW: State for locked/pinned armor highlighting
+  const [lockedArmorType, setLockedArmorType] = useState<string | null>(null);
+  const [lockedGroupIndex, setLockedGroupIndex] = useState<number | null>(null);
   
   // Refs and hooks
   const isSavingRef = useRef(false);
@@ -337,6 +389,21 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
     setTimeout(() => {
       isSavingRef.current = false;
     }, 1000);
+  };
+
+  // Handle armor type click to lock/unlock highlighting
+  const handleArmorClick = (armorType: string, groupIndex: number, hasPlayers: boolean) => {
+    if (!hasPlayers) return; // Don't allow clicking on empty armor types
+
+    // If clicking on already locked armor type in same group, unlock it
+    if (lockedArmorType === armorType && lockedGroupIndex === groupIndex) {
+      setLockedArmorType(null);
+      setLockedGroupIndex(null);
+    } else {
+      // Lock the new armor type
+      setLockedArmorType(armorType);
+      setLockedGroupIndex(groupIndex);
+    }
   };
 
   // Copy version handler
@@ -730,12 +797,18 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
                                     ? 'bg-red-500/[0.03] border-2 border-red-500 hover:border-red-400 hover:bg-red-500/[0.06]'
                                     : 'bg-white/[0.02] border border-white/5 hover:border-white/10 hover:bg-white/[0.04]'
                                 } ${
-                                  // NEW: Highlight effect for armor type hover
-                                  !isOrphaned && assignedChar.isMain && 
-                                  highlightedArmorType === getArmorTypeForClass(assignedChar.className) &&
-                                  highlightedGroupIndex === groupIdx
-                                    ? '!border-indigo-500/50 !bg-indigo-500/10 shadow-[0_0_15px_rgba(79,70,229,0.3)]' 
-                                    : ''
+                                  // NEW: Highlight effect for armor type hover or lock with armor-specific colors
+                                  (() => {
+                                    if (isOrphaned || !assignedChar.isMain) return '';
+                                    const charArmorType = getArmorTypeForClass(assignedChar.className);
+                                    const isHovered = highlightedArmorType === charArmorType && highlightedGroupIndex === groupIdx;
+                                    const isLocked = lockedArmorType === charArmorType && lockedGroupIndex === groupIdx;
+                                    if (isLocked || isHovered) {
+                                      const colors = ARMOR_COLORS[charArmorType];
+                                      return `!${colors.border} !${colors.bg} ${colors.shadow}`;
+                                    }
+                                    return '';
+                                  })()
                                 }`}
                               >
                                 <div className="flex items-center justify-between">
@@ -994,50 +1067,63 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
                         .map(p => p.name);
                       
                       const hasPlayers = mainPlayersWithArmor.length > 0;
-                      const isHighlighted = highlightedArmorType === type && highlightedGroupIndex === groupIdx;
-                      
+                      const isHovered = highlightedArmorType === type && highlightedGroupIndex === groupIdx;
+                      const isLocked = lockedArmorType === type && lockedGroupIndex === groupIdx;
+                      const isActive = isLocked || isHovered;
+                      const colors = ARMOR_COLORS[type];
+
                       return (
-                        <Tooltip 
-                          key={type} 
-                          content={`${hasPlayers ? `\n\nCurrent mains: ${mainPlayersWithArmor.join(', ')}` : ''}`}
+                        <Tooltip
+                          key={type}
+                          content={`${hasPlayers ? `Click to ${isLocked ? 'unlock' : 'lock'} highlighting\n\nCurrent mains: ${mainPlayersWithArmor.join(', ')}` : ''}`}
                         >
-                          <div 
-                            className={`bg-white/[0.02] border p-2 rounded-lg text-center cursor-help transition-all duration-200 relative ${
-                              hasPlayers 
-                                ? 'border-white/5 hover:border-indigo-500/50 hover:bg-indigo-500/5' 
-                                : 'border-white/5 opacity-60'
-                            } ${isHighlighted ? 'border-indigo-500/70 bg-indigo-500/10 shadow-[0_0_15px_rgba(79,70,229,0.3)]' : ''}`}
+                          <div
+                            className={`bg-white/[0.02] border p-2 rounded-lg text-center transition-all duration-200 relative ${
+                              hasPlayers
+                                ? `cursor-pointer border-white/5 ${!isActive ? colors.hoverBorder + ' ' + colors.hoverBg : ''}`
+                                : 'border-white/5 opacity-60 cursor-not-allowed'
+                            } ${isActive ? `${colors.border} ${colors.bg} ${colors.shadow}` : ''}`}
                             onMouseEnter={() => {
-                              if (hasPlayers) {
+                              if (hasPlayers && !isLocked) {
                                 setHighlightedArmorType(type);
                                 setHighlightedGroupIndex(groupIdx);
                               }
                             }}
                             onMouseLeave={() => {
-                              setHighlightedArmorType(null);
-                              setHighlightedGroupIndex(null);
+                              if (!isLocked) {
+                                setHighlightedArmorType(null);
+                                setHighlightedGroupIndex(null);
+                              }
                             }}
+                            onClick={() => handleArmorClick(type, groupIdx, hasPlayers)}
                           >
                             <span className="block text-[8px] font-black uppercase text-slate-600 mb-1">{type}</span>
                             <span className={`text-sm text-[20px] font-black ${
-                              hasPlayers 
-                                ? isHighlighted ? 'text-indigo-300' : 'text-white hover:text-indigo-300' 
+                              hasPlayers
+                                ? isActive ? colors.text : 'text-white'
                                 : 'text-slate-700'
                             }`}>
                               {count}
                             </span>
-                            
-                            {/* Glow effect when highlighted */}
-                            {isHighlighted && (
+
+                            {/* Glow effect when active */}
+                            {isActive && (
                               <div className="absolute inset-0 rounded-lg pointer-events-none">
-                                <div className="absolute inset-0 bg-indigo-500/10 rounded-lg blur-sm"></div>
+                                <div className={`absolute inset-0 ${colors.bg} rounded-lg blur-sm`}></div>
                               </div>
                             )}
-                            
+
+                            {/* Lock icon when locked */}
+                            {isLocked && (
+                              <div className="absolute top-1 left-1">
+                                <Lock size={10} className={colors.text} />
+                              </div>
+                            )}
+
                             {/* Indicator dot if there are players with this armor */}
                             {hasPlayers && (
                               <div className={`absolute top-1 right-1 w-1.5 h-1.5 rounded-full ${
-                                isHighlighted ? 'bg-indigo-400' : 'bg-indigo-500/60'
+                                isActive ? colors.indicator : 'bg-indigo-500/60'
                               }`}></div>
                             )}
                           </div>

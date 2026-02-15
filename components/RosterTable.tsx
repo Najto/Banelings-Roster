@@ -202,6 +202,12 @@ export const RosterTable: React.FC<RosterTableProps> = ({ roster, minIlvl }) => 
                 const raidCount = char.weeklyRaidBossKills || 0;
                 const isRaidGoalMet = raidCount >= WEEKLY_RAID_VAULT_GOAL;
                 const raidVaultStatus = getRaidVaultStatus(raidCount);
+
+                const normalKills = char.weeklyRaidKillDetails?.filter(k => k.difficulty === 'Normal').length ?? 0;
+                const heroicKills = char.weeklyRaidKillDetails?.filter(k => k.difficulty === 'Heroic').length ?? 0;
+                const mythicKills = char.weeklyRaidKillDetails?.filter(k => k.difficulty === 'Mythic').length ?? 0;
+                const raidVaultSlots = raidCount >= 6 ? 3 : raidCount >= 4 ? 2 : raidCount >= 2 ? 1 : 0;
+                const highestDifficulty = mythicKills > 0 ? 'M' : heroicKills > 0 ? 'H' : normalKills > 0 ? 'N' : '-';
                 
                 return (
                   <React.Fragment key={charId}>
@@ -293,9 +299,16 @@ export const RosterTable: React.FC<RosterTableProps> = ({ roster, minIlvl }) => 
                                     </span>
                                     {isRaidGoalMet && <Check size={10} className="text-emerald-500" />}
                                 </div>
-                                <span className={`text-[8px] font-black uppercase tracking-tighter ${raidVaultStatus.color}`}>
+                                <span className={`text-[8px] font-black uppercase tracking-tighter ${raidVaultStatus.color}`} title={`${raidVaultSlots}/3 Vault Slots - Highest: ${highestDifficulty}`}>
                                     {raidVaultStatus.label}
                                 </span>
+                            </div>
+
+                            <div className="flex items-center gap-1 text-[8px] font-black">
+                              {normalKills > 0 && <span className="text-green-400">{normalKills}N</span>}
+                              {heroicKills > 0 && <span className="text-blue-400">{heroicKills}H</span>}
+                              {mythicKills > 0 && <span className="text-orange-400">{mythicKills}M</span>}
+                              {raidCount === 0 && <span className="text-slate-600">0 kills</span>}
                             </div>
 
                             <div className="relative w-full h-1.5 bg-black/50 rounded-full overflow-hidden border border-white/5">

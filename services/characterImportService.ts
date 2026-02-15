@@ -235,9 +235,35 @@ export const enrichCharacter = async (
 
     // Step 9: Process raid kills baseline
     const resetDate = getCurrentResetTime().toISOString().split('T')[0];
-    const currentBossKills = character.raidBossKills || [];
+
+    // Merge WCL raidBossKills with existing RIO data
+    const rioBossKills = character.raidBossKills || [];
+    const wclBossKills = (wclData as any)?.raidBossKills || [];
+
+    // Create a map to merge both sources (WCL takes priority for lifetime kills)
+    const mergedBossKillsMap = new Map();
+    rioBossKills.forEach(boss => {
+      mergedBossKillsMap.set(boss.name, { ...boss });
+    });
+    wclBossKills.forEach((boss: any) => {
+      if (mergedBossKillsMap.has(boss.name)) {
+        const existing = mergedBossKillsMap.get(boss.name);
+        mergedBossKillsMap.set(boss.name, {
+          name: boss.name,
+          normal: Math.max(existing.normal, boss.normal),
+          heroic: Math.max(existing.heroic, boss.heroic),
+          mythic: Math.max(existing.mythic, boss.mythic),
+        });
+      } else {
+        mergedBossKillsMap.set(boss.name, boss);
+      }
+    });
+
+    const mergedBossKills = Array.from(mergedBossKillsMap.values());
+    character.raidBossKills = mergedBossKills;
+
     const { count: weeklyCount, details: weeklyDetails, newBaseline } =
-      computeWeeklyRaidKills(currentBossKills, undefined, resetDate);
+      computeWeeklyRaidKills(mergedBossKills, undefined, resetDate);
 
     const wclDetails = (wclData?.weeklyRaidKills || []).map(k => ({
       bossName: k.bossName,

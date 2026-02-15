@@ -113,6 +113,13 @@ const ZONES_QUERY = `
 
 const DIFFICULTY_MAP: Record<number, string> = { 3: "Normal", 4: "Heroic", 5: "Mythic" };
 
+interface RaidBossKill {
+  name: string;
+  normal: number;
+  heroic: number;
+  mythic: number;
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 200, headers: corsHeaders });
@@ -173,6 +180,7 @@ Deno.serve(async (req: Request) => {
         : 0;
 
     let weeklyRaidKills: { bossName: string; difficulty: string; difficultyId: number }[] = [];
+    const raidBossKills: RaidBossKill[] = [];
 
     const recentReports = character.recentReports?.data || [];
     console.log(`[WCL] ${characterName}: ${recentReports.length} recent reports, filtering for zoneId=${wclZoneId}, resetMs=${resetMs}`);
@@ -199,7 +207,8 @@ Deno.serve(async (req: Request) => {
       try {
         const fightsResult = await queryWCL(token, fightsQuery, {});
         const reportData = fightsResult?.data?.reportData || {};
-        const seenBosses = new Map<string, { bossName: string; difficulty: string; difficultyId: number }>();
+        const bossKillsByDifficulty = new Map<string, { name: string; normal: number; heroic: number; mythic: number }>();
+        const weeklyKillsForCompat = new Map<string, { bossName: string; difficulty: string; difficultyId: number }>();
 
         for (const key of Object.keys(reportData)) {
           const fights = reportData[key]?.fights || [];
@@ -209,10 +218,19 @@ Deno.serve(async (req: Request) => {
             if (diff < 3 || diff > 5) continue;
 
             const bossKey = fight.name || `encounter-${fight.encounterID}`;
-            const existing = seenBosses.get(bossKey);
 
+            if (!bossKillsByDifficulty.has(bossKey)) {
+              bossKillsByDifficulty.set(bossKey, { name: bossKey, normal: 0, heroic: 0, mythic: 0 });
+            }
+
+            const bossData = bossKillsByDifficulty.get(bossKey)!;
+            if (diff === 3) bossData.normal++;
+            else if (diff === 4) bossData.heroic++;
+            else if (diff === 5) bossData.mythic++;
+
+            const existing = weeklyKillsForCompat.get(bossKey);
             if (!existing || diff > existing.difficultyId) {
-              seenBosses.set(bossKey, {
+              weeklyKillsForCompat.set(bossKey, {
                 bossName: bossKey,
                 difficulty: DIFFICULTY_MAP[diff] || "Normal",
                 difficultyId: diff,
@@ -221,7 +239,8 @@ Deno.serve(async (req: Request) => {
           }
         }
 
-        weeklyRaidKills = Array.from(seenBosses.values()).sort(
+        raidBossKills.push(...Array.from(bossKillsByDifficulty.values()));
+        weeklyRaidKills = Array.from(weeklyKillsForCompat.values()).sort(
           (a, b) => b.difficultyId - a.difficultyId
         );
       } catch (fightErr) {
@@ -229,7 +248,7 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    return jsonResponse({ rankings, allStarPoints, weeklyRaidKills });
+    return jsonResponse({ rankings, allStarPoints, weeklyRaidKills, raidBossKills });
   } catch (error) {
     console.error("WCL edge function error:", error);
     return jsonResponse(EMPTY_RESPONSE);

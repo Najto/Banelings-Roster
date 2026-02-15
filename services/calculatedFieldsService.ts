@@ -144,6 +144,45 @@ const CALCULATED_FIELDS: Record<string, CalcFn> = {
     if (kills >= 2) return 1;
     return 0;
   },
+
+  weeklyNormalKills: (char) => {
+    const details = char.weeklyRaidKillDetails ?? [];
+    return details.filter(k => k.difficulty === 'Normal').length;
+  },
+
+  weeklyHeroicKills: (char) => {
+    const details = char.weeklyRaidKillDetails ?? [];
+    return details.filter(k => k.difficulty === 'Heroic').length;
+  },
+
+  weeklyMythicKills: (char) => {
+    const details = char.weeklyRaidKillDetails ?? [];
+    return details.filter(k => k.difficulty === 'Mythic').length;
+  },
+
+  raidVaultLevel: (char) => {
+    const details = char.weeklyRaidKillDetails ?? [];
+    if (details.some(k => k.difficulty === 'Mythic')) return 'Mythic';
+    if (details.some(k => k.difficulty === 'Heroic')) return 'Heroic';
+    if (details.some(k => k.difficulty === 'Normal')) return 'Normal';
+    return null;
+  },
+
+  lifetimeRaidBosses: (char) => {
+    const bosses = char.raidBossKills ?? [];
+    return bosses.filter(b => b.normal > 0 || b.heroic > 0 || b.mythic > 0).length;
+  },
+
+  weeklyKillsFormatted: (char) => {
+    const normal = char.weeklyRaidKillDetails?.filter(k => k.difficulty === 'Normal').length ?? 0;
+    const heroic = char.weeklyRaidKillDetails?.filter(k => k.difficulty === 'Heroic').length ?? 0;
+    const mythic = char.weeklyRaidKillDetails?.filter(k => k.difficulty === 'Mythic').length ?? 0;
+    const parts = [];
+    if (normal > 0) parts.push(`${normal}N`);
+    if (heroic > 0) parts.push(`${heroic}H`);
+    if (mythic > 0) parts.push(`${mythic}M`);
+    return parts.length > 0 ? parts.join(' + ') : '-';
+  },
 };
 
 export const calculateField = (functionName: string, char: Character): any => {

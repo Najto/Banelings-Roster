@@ -242,6 +242,92 @@ export const getHeaderGroups = (thresholds: IlvlThresholds): HeaderGroup[] => [
     ],
   },
   {
+    id: 'weeklyRaid',
+    label: 'WEEKLY RAID',
+    icon: Swords,
+    colorClass: 'text-purple-400',
+    columns: [
+      {
+        key: 'weeklyKillsFormatted', label: 'Kills (N/H/M)', sortType: 'string', center: true,
+        getValue: c => {
+          const normal = c.weeklyRaidKillDetails?.filter(k => k.difficulty === 'Normal').length ?? 0;
+          const heroic = c.weeklyRaidKillDetails?.filter(k => k.difficulty === 'Heroic').length ?? 0;
+          const mythic = c.weeklyRaidKillDetails?.filter(k => k.difficulty === 'Mythic').length ?? 0;
+          return `${normal}N+${heroic}H+${mythic}M`;
+        },
+        render: c => {
+          const normal = c.weeklyRaidKillDetails?.filter(k => k.difficulty === 'Normal').length ?? 0;
+          const heroic = c.weeklyRaidKillDetails?.filter(k => k.difficulty === 'Heroic').length ?? 0;
+          const mythic = c.weeklyRaidKillDetails?.filter(k => k.difficulty === 'Mythic').length ?? 0;
+          const parts = [];
+          if (normal > 0) parts.push(<span key="n" className="text-green-400">{normal}N</span>);
+          if (heroic > 0) parts.push(<span key="h" className="text-blue-400">{heroic}H</span>);
+          if (mythic > 0) parts.push(<span key="m" className="text-orange-400">{mythic}M</span>);
+          if (parts.length === 0) return <span className="text-slate-600">-</span>;
+          return <span className="text-[10px] font-black flex gap-1 justify-center">{parts.map((p, i) => i > 0 ? [<span key={`sep${i}`} className="text-slate-600">+</span>, p] : p)}</span>;
+        },
+      },
+      {
+        key: 'weeklyRaidBossKills', label: 'Total', sortType: 'number', center: true,
+        getValue: c => c.weeklyRaidBossKills ?? 0,
+        render: c => {
+          const kills = c.weeklyRaidBossKills ?? 0;
+          const clr = kills >= 6 ? 'text-emerald-500' : kills >= 4 ? 'text-sky-500' : kills >= 2 ? 'text-amber-500' : 'text-slate-600';
+          return <span className={`text-[11px] font-black ${clr}`}>{kills}</span>;
+        },
+      },
+      {
+        key: 'raidVaultSlots', label: 'Vault Slots', sortType: 'number', center: true,
+        getValue: c => {
+          const kills = c.weeklyRaidBossKills ?? 0;
+          if (kills >= 6) return 3;
+          if (kills >= 4) return 2;
+          if (kills >= 2) return 1;
+          return 0;
+        },
+        render: c => {
+          const kills = c.weeklyRaidBossKills ?? 0;
+          const slots = kills >= 6 ? 3 : kills >= 4 ? 2 : kills >= 2 ? 1 : 0;
+          const clr = slots === 3 ? 'text-emerald-500' : slots === 2 ? 'text-sky-500' : slots === 1 ? 'text-amber-500' : 'text-slate-600';
+          return <span className={`text-[11px] font-black ${clr}`}>{slots}/3</span>;
+        },
+      },
+      {
+        key: 'raidVaultLevel', label: 'Vault Track', sortType: 'string', center: true,
+        getValue: c => {
+          const details = c.weeklyRaidKillDetails ?? [];
+          if (details.some(k => k.difficulty === 'Mythic')) return 'Mythic';
+          if (details.some(k => k.difficulty === 'Heroic')) return 'Heroic';
+          if (details.some(k => k.difficulty === 'Normal')) return 'Normal';
+          return '-';
+        },
+        render: c => {
+          const details = c.weeklyRaidKillDetails ?? [];
+          const hasMythic = details.some(k => k.difficulty === 'Mythic');
+          const hasHeroic = details.some(k => k.difficulty === 'Heroic');
+          const hasNormal = details.some(k => k.difficulty === 'Normal');
+
+          if (hasMythic) return <span className="text-[9px] font-black text-orange-400">MYTHIC</span>;
+          if (hasHeroic) return <span className="text-[9px] font-black text-blue-400">HEROIC</span>;
+          if (hasNormal) return <span className="text-[9px] font-black text-green-400">NORMAL</span>;
+          return <span className="text-[9px] text-slate-600">-</span>;
+        },
+      },
+      {
+        key: 'lifetimeRaidBosses', label: 'Lifetime Bosses', sortType: 'number', center: true,
+        getValue: c => {
+          const bosses = c.raidBossKills ?? [];
+          return bosses.filter(b => b.normal > 0 || b.heroic > 0 || b.mythic > 0).length;
+        },
+        render: c => {
+          const bosses = c.raidBossKills ?? [];
+          const count = bosses.filter(b => b.normal > 0 || b.heroic > 0 || b.mythic > 0).length;
+          return <span className="text-[10px] text-purple-400 font-black">{count}</span>;
+        },
+      },
+    ],
+  },
+  {
     id: 'vault',
     label: 'GREAT VAULT',
     icon: Trophy,

@@ -127,7 +127,7 @@ const ARMOR_COLORS: Record<string, {
   "leather": {
     border: "border-lime-500/70",
     bg: "bg-lime-500/10",
-    shadow: "shadow-[0_0_15px_rgba(132,204,22,0.4)]",
+    shadow: "shadow-[0_0_12px_rgba(132,204,22,0.35)]",
     text: "text-lime-300",
     hoverBorder: "hover:border-lime-500/50",
     hoverBg: "hover:bg-lime-500/5",

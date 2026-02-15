@@ -232,9 +232,8 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
   const [highlightedArmorType, setHighlightedArmorType] = useState<string | null>(null);
   const [highlightedGroupIndex, setHighlightedGroupIndex] = useState<number | null>(null);
 
-  // NEW: State for locked/pinned armor highlighting
-  const [lockedArmorType, setLockedArmorType] = useState<string | null>(null);
-  const [lockedGroupIndex, setLockedGroupIndex] = useState<number | null>(null);
+  // NEW: State for locked/pinned armor highlighting - supports multiple locks
+  const [lockedArmorTypes, setLockedArmorTypes] = useState<Set<string>>(new Set());
   
   // Refs and hooks
   const isSavingRef = useRef(false);
@@ -395,15 +394,18 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
   const handleArmorClick = (armorType: string, groupIndex: number, hasPlayers: boolean) => {
     if (!hasPlayers) return; // Don't allow clicking on empty armor types
 
-    // If clicking on already locked armor type in same group, unlock it
-    if (lockedArmorType === armorType && lockedGroupIndex === groupIndex) {
-      setLockedArmorType(null);
-      setLockedGroupIndex(null);
-    } else {
-      // Lock the new armor type
-      setLockedArmorType(armorType);
-      setLockedGroupIndex(groupIndex);
-    }
+    const lockKey = `${groupIndex}-${armorType}`;
+    setLockedArmorTypes(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(lockKey)) {
+        // If already locked, unlock it
+        newSet.delete(lockKey);
+      } else {
+        // Lock the armor type
+        newSet.add(lockKey);
+      }
+      return newSet;
+    });
   };
 
   // Copy version handler
@@ -802,7 +804,7 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
                                     if (isOrphaned || !assignedChar.isMain) return '';
                                     const charArmorType = getArmorTypeForClass(assignedChar.className);
                                     const isHovered = highlightedArmorType === charArmorType && highlightedGroupIndex === groupIdx;
-                                    const isLocked = lockedArmorType === charArmorType && lockedGroupIndex === groupIdx;
+                                    const isLocked = lockedArmorTypes.has(`${groupIdx}-${charArmorType}`);
                                     if (isLocked || isHovered) {
                                       const colors = ARMOR_COLORS[charArmorType];
                                       return `!${colors.border} !${colors.bg} ${colors.shadow}`;
@@ -1068,14 +1070,14 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
                       
                       const hasPlayers = mainPlayersWithArmor.length > 0;
                       const isHovered = highlightedArmorType === type && highlightedGroupIndex === groupIdx;
-                      const isLocked = lockedArmorType === type && lockedGroupIndex === groupIdx;
+                      const isLocked = lockedArmorTypes.has(`${groupIdx}-${type}`);
                       const isActive = isLocked || isHovered;
                       const colors = ARMOR_COLORS[type];
 
                       return (
                         <Tooltip
                           key={type}
-                          content={`${hasPlayers ? `Click to ${isLocked ? 'unlock' : 'lock'} highlighting\n\nCurrent mains: ${mainPlayersWithArmor.join(', ')}` : ''}`}
+                          content={`${hasPlayers ? `Click to ${isLocked ? 'unlock' : 'lock'} highlighting (multiple allowed)\n\nCurrent mains: ${mainPlayersWithArmor.join(', ')}` : ''}`}
                         >
                           <div
                             className={`bg-white/[0.02] border p-2 rounded-lg text-center transition-all duration-200 relative ${

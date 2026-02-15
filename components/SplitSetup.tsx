@@ -125,22 +125,22 @@ const ARMOR_COLORS: Record<string, {
     indicator: "bg-violet-400"
   },
   "leather": {
-    border: "border-emerald-600/70",
-    bg: "bg-emerald-600/10",
-    shadow: "shadow-[0_0_15px_rgba(16,185,129,0.4)]",
-    text: "text-emerald-300",
-    hoverBorder: "hover:border-emerald-600/50",
-    hoverBg: "hover:bg-emerald-600/5",
-    indicator: "bg-emerald-400"
+    border: "border-lime-500/70",
+    bg: "bg-lime-500/10",
+    shadow: "shadow-[0_0_15px_rgba(132,204,22,0.4)]",
+    text: "text-lime-300",
+    hoverBorder: "hover:border-lime-500/50",
+    hoverBg: "hover:bg-lime-500/5",
+    indicator: "bg-lime-400"
   },
   "mail": {
-    border: "border-cyan-500/70",
-    bg: "bg-cyan-500/10",
-    shadow: "shadow-[0_0_15px_rgba(6,182,212,0.4)]",
-    text: "text-cyan-300",
-    hoverBorder: "hover:border-cyan-500/50",
-    hoverBg: "hover:bg-cyan-500/5",
-    indicator: "bg-cyan-400"
+    border: "border-sky-500/70",
+    bg: "bg-sky-500/10",
+    shadow: "shadow-[0_0_15px_rgba(56,189,248,0.45)]",
+    text: "text-sky-300",
+    hoverBorder: "hover:border-sky-500/50",
+    hoverBg: "hover:bg-sky-500/5",
+    indicator: "bg-sky-400"
   },
   "plate": {
     border: "border-amber-500/70",

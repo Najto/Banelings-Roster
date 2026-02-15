@@ -62,6 +62,7 @@ export interface RaidConfig {
 }
 
 export const KNOWN_RAIDS: RaidConfig[] = [
+  { raidName: 'Manaforge Omega', raidSlug: 'manaforge-omega', wclZoneId: 44, totalBosses: 8 },
   { raidName: 'Liberation of Undermine', raidSlug: 'liberation-of-undermine', wclZoneId: 42, totalBosses: 8 },
   { raidName: "Nerub-ar Palace", raidSlug: 'nerubar-palace', wclZoneId: 38, totalBosses: 8 },
   { raidName: "Amirdrassil, the Dream's Hope", raidSlug: 'amirdrassil-the-dreams-hope', wclZoneId: 35, totalBosses: 9 },

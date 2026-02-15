@@ -50,18 +50,17 @@ export const computeWeeklyRaidKills = (
   baseline: RaidKillBaseline | undefined,
   resetDate: string
 ): { count: number; details: WeeklyRaidKillDetail[]; newBaseline: RaidKillBaseline } => {
-  if (!baseline) {
-    return {
-      count: 0,
-      details: [],
-      newBaseline: { resetDate, bossKills: current, latestKills: current }
-    };
-  }
+  const emptyBaseline: RaidKillBaseline = {
+    resetDate,
+    bossKills: [],
+    latestKills: [],
+  };
 
-  const isNewWeek = baseline.resetDate !== resetDate;
+  const effectiveBaseline = baseline || emptyBaseline;
+  const isNewWeek = effectiveBaseline.resetDate !== resetDate;
   const referenceKills = isNewWeek
-    ? (baseline.latestKills || baseline.bossKills)
-    : baseline.bossKills;
+    ? (effectiveBaseline.latestKills || effectiveBaseline.bossKills)
+    : effectiveBaseline.bossKills;
 
   const baseMap = new Map(referenceKills.map(b => [b.name, b]));
   const details: WeeklyRaidKillDetail[] = [];
@@ -86,9 +85,9 @@ export const computeWeeklyRaidKills = (
 
   details.sort((a, b) => b.difficultyId - a.difficultyId);
 
-  const newBaseline: RaidKillBaseline = isNewWeek
+  const newBaseline: RaidKillBaseline = isNewWeek || !baseline
     ? { resetDate, bossKills: referenceKills, latestKills: current }
-    : { ...baseline, latestKills: current };
+    : { ...effectiveBaseline, latestKills: current };
 
   return { count: details.length, details, newBaseline };
 };
@@ -116,7 +115,10 @@ export const fetchRaiderIOData = async (name: string, realm: string, raidSlug?: 
   try {
     const encodedRealm = encodeURIComponent(realm.toLowerCase());
     const encodedName = encodeURIComponent(name.toLowerCase());
-    const fields = "mythic_plus_scores_by_season:current,mythic_plus_recent_runs,mythic_plus_ranks,mythic_plus_best_runs,mythic_plus_weekly_highest_level_runs,gear,raid_progression,guild";
+    const raidProgressionField = raidSlug
+      ? `raid_progression:${raidSlug}`
+      : 'raid_progression';
+    const fields = `mythic_plus_scores_by_season:current,mythic_plus_recent_runs,mythic_plus_ranks,mythic_plus_best_runs,mythic_plus_weekly_highest_level_runs,gear,${raidProgressionField},guild`;
     
     const url = `${BASE_URL}?region=eu&realm=${encodedRealm}&name=${encodedName}&fields=${fields}`;
     const response = await fetch(url);

@@ -175,6 +175,10 @@ Deno.serve(async (req: Request) => {
     let weeklyRaidKills: { bossName: string; difficulty: string; difficultyId: number }[] = [];
 
     const recentReports = character.recentReports?.data || [];
+    console.log(`[WCL] ${characterName}: ${recentReports.length} recent reports, filtering for zoneId=${wclZoneId}, resetMs=${resetMs}`);
+    if (recentReports.length > 0) {
+      console.log(`[WCL] Report zones: ${recentReports.map((r: { zone?: { id: number; name: string }; startTime: number }) => `${r.zone?.name || 'unknown'}(${r.zone?.id || '?'}) @${r.startTime}`).join(', ')}`);
+    }
     const reportsThisWeek = recentReports.filter(
       (r: { startTime: number; zone?: { id: number } }) => {
         if (r.startTime < resetMs) return false;
@@ -182,6 +186,7 @@ Deno.serve(async (req: Request) => {
         return true;
       }
     );
+    console.log(`[WCL] ${characterName}: ${reportsThisWeek.length} reports this week after filtering`);
 
     if (reportsThisWeek.length > 0) {
       const reportCodes = reportsThisWeek.map((r: { code: string }) => r.code);

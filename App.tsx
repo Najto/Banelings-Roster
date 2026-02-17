@@ -1071,7 +1071,7 @@ const App: React.FC = () => {
           </div>
         )}
 
-        <div className="max-w-[1600px] mx-auto">
+        <div className="mx-auto">
           {activeTab === 'roster' && (
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 space-y-6">
               <StatOverview roster={roster} minIlvl={minIlvl} />

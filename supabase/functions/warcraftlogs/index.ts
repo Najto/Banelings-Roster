@@ -12,7 +12,7 @@ const WCL_API_URL = "https://www.warcraftlogs.com/api/v2/client";
 const WCL_CLIENT_ID = "a1043cfd-5817-41fb-bcae-9c0790f09a5e";
 const WCL_CLIENT_SECRET = "tZ87YJXe7nf4iMtZz3DGpqicDmJymQiFstrULDuv";
 
-const EMPTY_RESPONSE = { rankings: [], allStarPoints: 0, weeklyRaidKills: [] };
+const EMPTY_RESPONSE = { rankings: [], allStarPoints: 0, weeklyRaidKills: [], mythicRankings: [], highestDifficulty: 0 };
 
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -163,16 +163,20 @@ Deno.serve(async (req: Request) => {
       return jsonResponse(EMPTY_RESPONSE);
     }
 
-    const difficulty = character.mythic ? 5 : character.heroic ? 4 : 3;
+    const highestDifficulty = character.mythic ? 5 : character.heroic ? 4 : 3;
 
-    const rankings = (zoneData.rankings || []).map((r: Record<string, unknown>) => ({
-      encounter: { name: (r.encounter as Record<string, unknown>)?.name || "Unknown" },
-      difficulty,
-      rankPercent: r.rankPercent || 0,
-      totalKills: r.totalKills || 0,
-      bestAmount: r.bestAmount || 0,
-      spec: r.spec || "",
-    }));
+    const mapRankings = (source: Record<string, unknown>, diff: number) =>
+      ((source?.rankings as Record<string, unknown>[]) || []).map((r: Record<string, unknown>) => ({
+        encounter: { name: (r.encounter as Record<string, unknown>)?.name || "Unknown" },
+        difficulty: diff,
+        rankPercent: r.rankPercent || 0,
+        totalKills: r.totalKills || 0,
+        bestAmount: r.bestAmount || 0,
+        spec: r.spec || "",
+      }));
+
+    const rankings = mapRankings(zoneData, highestDifficulty);
+    const mythicRankings = character.mythic ? mapRankings(character.mythic, 5) : [];
 
     const allStarPoints =
       Array.isArray(zoneData.allStars) && zoneData.allStars.length > 0
@@ -248,7 +252,7 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    return jsonResponse({ rankings, allStarPoints, weeklyRaidKills, raidBossKills });
+    return jsonResponse({ rankings, mythicRankings, highestDifficulty, allStarPoints, weeklyRaidKills, raidBossKills });
   } catch (error) {
     console.error("WCL edge function error:", error);
     return jsonResponse(EMPTY_RESPONSE);

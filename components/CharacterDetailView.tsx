@@ -400,7 +400,9 @@ export const CharacterDetailView: React.FC<CharacterDetailViewProps> = ({ roster
                     <span className="text-xs font-black text-orange-400">{displayChar.warcraftLogs.allStarPoints}</span>
                   </div>
                   <div className="flex justify-between bg-black/40 p-3 rounded-xl border border-white/5">
-                    <span className="text-[10px] font-bold text-slate-500">Bosses / Kills</span>
+                    <span className="text-[10px] font-bold text-slate-500">
+                      Bosses / Kills{displayChar.warcraftLogs.highestDifficultyLabel ? ` (${displayChar.warcraftLogs.highestDifficultyLabel})` : ''}
+                    </span>
                     <span className="text-xs font-black text-orange-400">{displayChar.warcraftLogs.bossesLogged} / {displayChar.warcraftLogs.totalKills}</span>
                   </div>
                 </div>

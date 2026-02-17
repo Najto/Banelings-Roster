@@ -237,8 +237,8 @@ export const getHeaderGroups = (thresholds: IlvlThresholds): HeaderGroup[] => [
         },
       },
       { key: 'wclAllStar', label: 'AllStar', sortType: 'number', center: true, getValue: c => c.warcraftLogs?.allStarPoints || 0, render: c => <span className="text-[10px] text-orange-400 font-black">{c.warcraftLogs?.allStarPoints || '-'}</span> },
-      { key: 'wclBosses', label: 'Bosses', sortType: 'number', center: true, getValue: c => c.warcraftLogs?.bossesLogged || 0, render: c => <span className="text-[10px] text-orange-400">{c.warcraftLogs?.bossesLogged || '-'}</span> },
-      { key: 'wclKills', label: 'Kills', sortType: 'number', center: true, getValue: c => c.warcraftLogs?.totalKills || 0, render: c => <span className="text-[10px] text-orange-400">{c.warcraftLogs?.totalKills || '-'}</span> },
+      { key: 'wclBosses', label: 'M Bosses', sortType: 'number', center: true, getValue: c => c.warcraftLogs?.mythicBossesLogged || 0, render: c => <span className="text-[10px] text-orange-400">{c.warcraftLogs?.mythicBossesLogged || '-'}</span> },
+      { key: 'wclKills', label: 'M Kills', sortType: 'number', center: true, getValue: c => c.warcraftLogs?.mythicTotalKills || 0, render: c => <span className="text-[10px] text-orange-400">{c.warcraftLogs?.mythicTotalKills || '-'}</span> },
     ],
   },
   {

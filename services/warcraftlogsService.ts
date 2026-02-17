@@ -14,6 +14,10 @@ export interface WarcraftLogsData {
   allStarPoints: number;
   bossesLogged: number;
   totalKills: number;
+  mythicBossesLogged: number;
+  mythicTotalKills: number;
+  highestDifficulty: number;
+  highestDifficultyLabel: string;
   rankings: WarcraftLogsRanking[];
   weeklyRaidKills: WclWeeklyKill[];
 }
@@ -113,6 +117,21 @@ export const fetchWarcraftLogsData = async (
     const bossesLogged = rankings.length;
     const totalKills = rankings.reduce((sum, r) => sum + r.totalKills, 0);
 
+    const mythicRankings: WarcraftLogsRanking[] = (data.mythicRankings || []).map((r: any) => ({
+      encounter: r.encounter?.name || r.encounterName || 'Unknown',
+      difficulty: 5,
+      rankPercent: r.rankPercent || 0,
+      totalKills: r.totalKills || 0,
+      bestAmount: r.bestAmount || 0,
+      spec: r.spec || '',
+    }));
+    const mythicBossesLogged = mythicRankings.length;
+    const mythicTotalKills = mythicRankings.reduce((sum, r) => sum + r.totalKills, 0);
+
+    const highestDifficulty: number = data.highestDifficulty || (rankings.length > 0 ? rankings[0].difficulty : 0);
+    const DIFFICULTY_LABELS: Record<number, string> = { 3: 'Normal', 4: 'Heroic', 5: 'Mythic' };
+    const highestDifficultyLabel = DIFFICULTY_LABELS[highestDifficulty] || '';
+
     const weeklyRaidKills: WclWeeklyKill[] = (data.weeklyRaidKills || []).map((k: any) => ({
       bossName: k.bossName || 'Unknown',
       difficulty: k.difficulty || 'Normal',
@@ -126,6 +145,10 @@ export const fetchWarcraftLogsData = async (
       allStarPoints: Math.round(allStarPoints * 10) / 10,
       bossesLogged,
       totalKills,
+      mythicBossesLogged,
+      mythicTotalKills,
+      highestDifficulty,
+      highestDifficultyLabel,
       rankings,
       weeklyRaidKills,
     };

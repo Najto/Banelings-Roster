@@ -987,5 +987,34 @@ export const persistenceService = {
       console.error('Failed to get next display order:', error);
       return 1;
     }
+  },
+
+  async updateRosterMemberRole(memberName: string, newRole: PlayerRole): Promise<boolean> {
+    try {
+      const { error: memberError } = await supabase
+        .from('roster_members')
+        .update({ role: newRole })
+        .eq('member_name', memberName);
+
+      if (memberError) {
+        console.error('Error updating roster member role:', memberError);
+        return false;
+      }
+
+      const { error: charError } = await supabase
+        .from('character_data')
+        .update({ role: newRole })
+        .eq('player_name', memberName);
+
+      if (charError) {
+        console.error('Error updating character_data roles:', charError);
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Failed to update roster member role:', error);
+      return false;
+    }
   }
 };

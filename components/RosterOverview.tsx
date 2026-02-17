@@ -1,7 +1,7 @@
 
 import React, { useMemo, useState } from 'react';
 import { Player, Character, PlayerRole, ROLE_PRIORITY, CLASS_COLORS } from '../types';
-import { Shield, Heart, Sword, Target, Trash2 } from 'lucide-react';
+import { Shield, Heart, Sword, Target, Trash2, UserPlus, ChevronDown } from 'lucide-react';
 
 interface RosterOverviewProps {
   roster: Player[];
@@ -10,6 +10,8 @@ interface RosterOverviewProps {
   onAddCharacter?: (memberName: string, isMain: boolean) => void;
   onMemberClick?: (memberName: string) => void;
   onSwapCharacters?: (playerName: string, draggedCharName: string, draggedRealm: string, targetCharName: string, targetRealm: string) => Promise<void>;
+  onAddPlayer?: (role: PlayerRole) => void;
+  onChangeRole?: (memberName: string, newRole: PlayerRole) => Promise<void>;
 }
 
 const RoleIcon = ({ role }: { role: PlayerRole }) => {
@@ -189,7 +191,68 @@ const CharacterCell = ({
   );
 };
 
-export const RosterOverview: React.FC<RosterOverviewProps> = ({ roster, minIlvl, onDeleteCharacter, onAddCharacter, onMemberClick, onSwapCharacters }) => {
+const ROLE_CHANGE_OPTIONS: { role: PlayerRole; icon: React.ReactNode; color: string }[] = [
+  { role: PlayerRole.TANK, icon: <Shield size={12} />, color: 'text-blue-400 hover:bg-blue-500/20' },
+  { role: PlayerRole.HEALER, icon: <Heart size={12} />, color: 'text-emerald-400 hover:bg-emerald-500/20' },
+  { role: PlayerRole.MELEE, icon: <Sword size={12} />, color: 'text-red-400 hover:bg-red-500/20' },
+  { role: PlayerRole.RANGE, icon: <Target size={12} />, color: 'text-amber-400 hover:bg-amber-500/20' },
+];
+
+const RoleChangeDropdown: React.FC<{
+  playerName: string;
+  currentRole: PlayerRole;
+  onChangeRole: (memberName: string, newRole: PlayerRole) => Promise<void>;
+}> = ({ playerName, currentRole, onChangeRole }) => {
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const handleSelect = async (role: PlayerRole) => {
+    if (role === currentRole) { setOpen(false); return; }
+    setLoading(true);
+    try {
+      await onChangeRole(playerName, role);
+    } finally {
+      setLoading(false);
+      setOpen(false);
+    }
+  };
+
+  return (
+    <div className="relative">
+      <button
+        onClick={(e) => { e.stopPropagation(); setOpen(!open); }}
+        disabled={loading}
+        className="ml-1 p-0.5 rounded opacity-0 group-hover/row:opacity-100 transition-opacity text-slate-500 hover:text-slate-300 hover:bg-white/10 disabled:opacity-50"
+        title="Change role"
+      >
+        {loading ? (
+          <div className="w-3 h-3 border border-white/30 border-t-white rounded-full animate-spin" />
+        ) : (
+          <ChevronDown size={11} />
+        )}
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} />
+          <div className="absolute left-0 top-full mt-1 z-40 bg-[#0a0a0f] border border-white/10 rounded-lg shadow-2xl py-1 min-w-[110px]">
+            {ROLE_CHANGE_OPTIONS.map(({ role, icon, color }) => (
+              <button
+                key={role}
+                onClick={() => handleSelect(role)}
+                className={`w-full flex items-center gap-2 px-3 py-2 text-[11px] font-bold uppercase tracking-wider transition-colors ${color} ${role === currentRole ? 'opacity-40 cursor-default' : ''}`}
+              >
+                {icon}
+                {role}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+
+export const RosterOverview: React.FC<RosterOverviewProps> = ({ roster, minIlvl, onDeleteCharacter, onAddCharacter, onMemberClick, onSwapCharacters, onAddPlayer, onChangeRole }) => {
   const groupedPlayers = useMemo(() => {
     const groups: Record<PlayerRole, Player[]> = {
       [PlayerRole.TANK]: [],
@@ -219,78 +282,109 @@ export const RosterOverview: React.FC<RosterOverviewProps> = ({ roster, minIlvl,
 
   const splitHeaders = Array.from({ length: maxSplits }, (_, i) => `${i + 1}. Split Char`);
 
+  const visibleRoles = Object.values(PlayerRole)
+    .filter(role => role !== PlayerRole.UNKNOWN)
+    .sort((a, b) => ROLE_PRIORITY[a] - ROLE_PRIORITY[b]);
+
   return (
     <div className="space-y-8 pb-20">
-      {Object.values(PlayerRole).filter(role => role !== PlayerRole.UNKNOWN && groupedPlayers[role].length > 0).sort((a, b) => ROLE_PRIORITY[a] - ROLE_PRIORITY[b]).map(role => (
-        <div key={role} className="bg-[#0c0c0e] border border-white/5 rounded-2xl overflow-hidden shadow-2xl">
-          <div className="px-6 py-4 bg-black/40 border-b border-white/5 flex items-center gap-3">
-            <RoleIcon role={role} />
-            <h3 className="text-sm font-black uppercase tracking-[0.2em] text-white">{role}s</h3>
-            <span className="text-[10px] text-slate-600 font-bold ml-auto">{groupedPlayers[role].length} Members</span>
-          </div>
+      {visibleRoles.map(role => {
+        const players = groupedPlayers[role];
+        return (
+          <div key={role} className="bg-[#0c0c0e] border border-white/5 rounded-2xl overflow-hidden shadow-2xl">
+            <div className="px-6 py-4 bg-black/40 border-b border-white/5 flex items-center gap-3">
+              <RoleIcon role={role} />
+              <h3 className="text-sm font-black uppercase tracking-[0.2em] text-white">{role}s</h3>
+              <span className="text-[10px] text-slate-600 font-bold">{players.length} Members</span>
+              <div className="ml-auto">
+                <button
+                  onClick={() => onAddPlayer?.(role)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 rounded-lg text-[10px] font-bold uppercase tracking-wider text-slate-400 hover:text-white transition-all"
+                >
+                  <UserPlus size={11} />
+                  Add Player
+                </button>
+              </div>
+            </div>
 
-          <div className="overflow-x-auto custom-scrollbar-horizontal">
-            <table className="w-full border-collapse">
-              <thead>
-                <tr className="bg-black/60 border-b border-white/5">
-                  <th className="px-6 py-3 text-left text-[9px] font-black uppercase tracking-widest text-slate-500 w-[120px]">Member</th>
-                  <th className="px-6 py-3 text-left text-[9px] font-black uppercase tracking-widest text-slate-500 w-[180px]">Main Character</th>
-                  {splitHeaders.map((header, i) => (
-                    <th key={i} className="px-6 py-3 text-left text-[9px] font-black uppercase tracking-widest text-slate-500 w-[180px]">
-                      {header}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/5">
-                {groupedPlayers[role].map(player => (
-                  <tr key={player.id} className="hover:bg-white/[0.02] transition-colors">
-                    <td className="px-6 py-3 align-middle">
-                      <span
-                        onClick={() => onMemberClick?.(player.name)}
-                        className="text-[12px] font-black text-slate-300 uppercase tracking-tighter cursor-pointer hover:text-emerald-400 transition-colors"
-                      >
-                        {player.name}
-                      </span>
-                    </td>
-                    <td className="px-6 py-3">
-                      <CharacterCell
-                        char={player.mainCharacter}
-                        isMain
-                        minIlvl={minIlvl}
-                        onDelete={onDeleteCharacter}
-                        onAdd={() => onAddCharacter?.(player.name, true)}
-                        playerName={player.name}
-                        onSwap={async (draggedCharName, draggedRealm, targetCharName, targetRealm) => {
-                          if (onSwapCharacters) {
-                            await onSwapCharacters(player.name, draggedCharName, draggedRealm, targetCharName, targetRealm);
-                          }
-                        }}
-                      />
-                    </td>
-                    {Array.from({ length: maxSplits }).map((_, i) => (
-                      <td key={i} className="px-6 py-3">
-                        <CharacterCell
-                          char={player.splits[i]}
-                          minIlvl={minIlvl}
-                          onDelete={onDeleteCharacter}
-                          onAdd={() => onAddCharacter?.(player.name, false)}
-                          playerName={player.name}
-                          onSwap={async (draggedCharName, draggedRealm, targetCharName, targetRealm) => {
-                            if (onSwapCharacters) {
-                              await onSwapCharacters(player.name, draggedCharName, draggedRealm, targetCharName, targetRealm);
-                            }
-                          }}
-                        />
-                      </td>
+            {players.length === 0 ? (
+              <div className="px-6 py-8 text-center text-slate-600 text-xs font-bold uppercase tracking-widest">
+                No {role}s in roster
+              </div>
+            ) : (
+              <div className="overflow-x-auto custom-scrollbar-horizontal">
+                <table className="w-full border-collapse">
+                  <thead>
+                    <tr className="bg-black/60 border-b border-white/5">
+                      <th className="px-6 py-3 text-left text-[9px] font-black uppercase tracking-widest text-slate-500 w-[140px]">Member</th>
+                      <th className="px-6 py-3 text-left text-[9px] font-black uppercase tracking-widest text-slate-500 w-[180px]">Main Character</th>
+                      {splitHeaders.map((header, i) => (
+                        <th key={i} className="px-6 py-3 text-left text-[9px] font-black uppercase tracking-widest text-slate-500 w-[180px]">
+                          {header}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5">
+                    {players.map(player => (
+                      <tr key={player.id} className="hover:bg-white/[0.02] transition-colors group/row">
+                        <td className="px-6 py-3 align-middle">
+                          <div className="flex items-center">
+                            <span
+                              onClick={() => onMemberClick?.(player.name)}
+                              className="text-[12px] font-black text-slate-300 uppercase tracking-tighter cursor-pointer hover:text-emerald-400 transition-colors"
+                            >
+                              {player.name}
+                            </span>
+                            {onChangeRole && (
+                              <RoleChangeDropdown
+                                playerName={player.name}
+                                currentRole={player.role}
+                                onChangeRole={onChangeRole}
+                              />
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-6 py-3">
+                          <CharacterCell
+                            char={player.mainCharacter}
+                            isMain
+                            minIlvl={minIlvl}
+                            onDelete={onDeleteCharacter}
+                            onAdd={() => onAddCharacter?.(player.name, true)}
+                            playerName={player.name}
+                            onSwap={async (draggedCharName, draggedRealm, targetCharName, targetRealm) => {
+                              if (onSwapCharacters) {
+                                await onSwapCharacters(player.name, draggedCharName, draggedRealm, targetCharName, targetRealm);
+                              }
+                            }}
+                          />
+                        </td>
+                        {Array.from({ length: maxSplits }).map((_, i) => (
+                          <td key={i} className="px-6 py-3">
+                            <CharacterCell
+                              char={player.splits[i]}
+                              minIlvl={minIlvl}
+                              onDelete={onDeleteCharacter}
+                              onAdd={() => onAddCharacter?.(player.name, false)}
+                              playerName={player.name}
+                              onSwap={async (draggedCharName, draggedRealm, targetCharName, targetRealm) => {
+                                if (onSwapCharacters) {
+                                  await onSwapCharacters(player.name, draggedCharName, draggedRealm, targetCharName, targetRealm);
+                                }
+                              }}
+                            />
+                          </td>
+                        ))}
+                      </tr>
                     ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 };

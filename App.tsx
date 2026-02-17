@@ -10,6 +10,7 @@ import { RosterAudit } from './components/RosterAudit';
 import { CharacterDetailView } from './components/CharacterDetailView';
 import { RosterOverview } from './components/RosterOverview';
 import { AddCharacterModal } from './components/AddCharacterModal';
+import { AddPlayerModal } from './components/AddPlayerModal';
 import { Settings } from './components/Settings';
 import { fetchRosterFromSheet, fetchSplitsFromSheet } from './services/spreadsheetService';
 import { fetchRaiderIOData, getCurrentResetTime, computeWeeklyRaidKills } from './services/raiderioService';
@@ -89,6 +90,8 @@ const App: React.FC = () => {
   const [lastUpdate, setLastUpdate] = useState<string>("Nie");
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [addModalContext, setAddModalContext] = useState<{ memberName: string; isMain: boolean } | null>(null);
+  const [addPlayerModalOpen, setAddPlayerModalOpen] = useState(false);
+  const [addPlayerModalRole, setAddPlayerModalRole] = useState<PlayerRole>(PlayerRole.MELEE);
   const [migrationBanner, setMigrationBanner] = useState<{ show: boolean; count: number }>({ show: false, count: 0 });
   const [migrationDismissed, setMigrationDismissed] = useState(false);
   const [globalActiveUsers, setGlobalActiveUsers] = useState(0);
@@ -686,6 +689,31 @@ const App: React.FC = () => {
     setAddModalOpen(true);
   }, []);
 
+  // Add Player Handler
+  const handleOpenAddPlayer = useCallback((role: PlayerRole) => {
+    setAddPlayerModalRole(role);
+    setAddPlayerModalOpen(true);
+  }, []);
+
+  const handleAddPlayer = useCallback(async (playerName: string, role: PlayerRole) => {
+    const displayOrder = await persistenceService.getNextDisplayOrder();
+    const success = await persistenceService.createRosterMember(playerName, role, displayOrder);
+    if (!success) {
+      throw new Error('Failed to create player. Name may already exist.');
+    }
+    const updatedRoster = await persistenceService.loadRosterFromDatabase();
+    setRoster(updatedRoster);
+  }, []);
+
+  // Change Role Handler
+  const handleChangeRole = useCallback(async (memberName: string, newRole: PlayerRole) => {
+    const success = await persistenceService.updateRosterMemberRole(memberName, newRole);
+    if (success) {
+      const updatedRoster = await persistenceService.loadRosterFromDatabase();
+      setRoster(updatedRoster);
+    }
+  }, []);
+
   // Handle Member Click - Navigate to Detail View
   const handleMemberClick = useCallback((memberName: string) => {
     setSelectedMemberName(memberName);
@@ -1102,7 +1130,7 @@ const App: React.FC = () => {
                   <button onClick={() => setRosterViewMode('detail')} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${rosterViewMode === 'detail' ? 'bg-[#059669] text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}><User size={14} />DETAIL</button>
                 </div>
               </div>
-              {rosterViewMode === 'overview' && <RosterOverview roster={roster} minIlvl={minIlvl} onDeleteCharacter={handleDeleteCharacter} onAddCharacter={handleAddCharacter} onMemberClick={handleMemberClick} onSwapCharacters={handleSwapCharacters} />}
+              {rosterViewMode === 'overview' && <RosterOverview roster={roster} minIlvl={minIlvl} onDeleteCharacter={handleDeleteCharacter} onAddCharacter={handleAddCharacter} onMemberClick={handleMemberClick} onSwapCharacters={handleSwapCharacters} onAddPlayer={handleOpenAddPlayer} onChangeRole={handleChangeRole} />}
               {rosterViewMode === 'table' && <RosterTable roster={roster} minIlvl={minIlvl} />}
               {rosterViewMode === 'detail' && <CharacterDetailView roster={roster} minIlvl={minIlvl} initialMemberName={selectedMemberName} />}
             </div>
@@ -1126,6 +1154,12 @@ const App: React.FC = () => {
         }}
         memberName={addModalContext?.memberName || ''}
         isMain={addModalContext?.isMain || false}
+      />
+      <AddPlayerModal
+        isOpen={addPlayerModalOpen}
+        onClose={() => setAddPlayerModalOpen(false)}
+        onAdd={handleAddPlayer}
+        defaultRole={addPlayerModalRole}
       />
     </div>
   );

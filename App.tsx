@@ -23,7 +23,7 @@ import { presenceService } from './services/presenceService';
 import Toast from './components/Toast';
 import { useToast } from './hooks/useToast';
 import pLimit from 'p-limit';
-import { LayoutGrid, Users, Trophy, RefreshCw, Settings as SettingsIcon, AlertTriangle, Zap, Split, ClipboardList, Database, List, User, Loader2, Layout, AlertCircle, X, Eye } from 'lucide-react';
+import { LayoutGrid, Users, Trophy, RefreshCw, Settings as SettingsIcon, AlertTriangle, Zap, Split, ClipboardList, Database, List, User, Loader2, Layout, AlertCircle, X, Eye, ChevronLeft, ChevronRight } from 'lucide-react';
 
 const SLOT_MAP: Record<string, string> = {
   'HEAD': 'head',
@@ -70,6 +70,7 @@ const determineTrack = (ilvl: number): string => {
  * 3. Routing: Simple tab-based navigation between views.
  */
 const App: React.FC = () => {
+  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(false);
   const [roster, setRoster] = useState<Player[]>(INITIAL_ROSTER);
   const [splits, setSplits] = useState<SplitGroup[]>([]);
   const [minIlvl, setMinIlvl] = useState<number>(615);
@@ -952,13 +953,20 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen wow-gradient flex flex-col md:flex-row overflow-hidden h-screen text-slate-200">
       <Toast toasts={toasts} onDismiss={dismissToast} />
-      <nav className="w-full md:w-64 bg-[#050507] border-b md:border-b-0 md:border-r border-white/5 p-6 space-y-8 sticky top-0 md:h-screen z-10 flex flex-col shadow-2xl">
-        <div className="space-y-3">
-          <div className="flex items-center gap-3">
-            <img src="/96f31eb4f56a49f3e069065c7614c591.png" alt="Banelings" className="w-10 h-10 rounded-xl shadow-lg" />
-            <h1 className="text-xl font-black tracking-tighter text-white uppercase italic">Banelings</h1>
+      <nav className={`relative bg-[#050507] border-b md:border-b-0 md:border-r border-white/5 sticky top-0 md:h-screen z-10 flex flex-col shadow-2xl transition-all duration-300 ease-in-out ${sidebarCollapsed ? 'w-full md:w-[72px] p-3' : 'w-full md:w-64 p-6'}`}>
+        <button
+          onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+          className="hidden md:flex absolute -right-3 top-8 w-6 h-6 bg-[#050507] border border-white/10 rounded-full items-center justify-center text-slate-400 hover:text-white hover:border-white/30 transition-all z-20 shadow-lg"
+        >
+          {sidebarCollapsed ? <ChevronRight size={12} /> : <ChevronLeft size={12} />}
+        </button>
+
+        <div className={`${sidebarCollapsed ? 'space-y-2 items-center flex flex-col' : 'space-y-3'}`}>
+          <div className={`flex items-center ${sidebarCollapsed ? 'justify-center' : 'gap-3'}`}>
+            <img src="/96f31eb4f56a49f3e069065c7614c591.png" alt="Banelings" className="w-10 h-10 rounded-xl shadow-lg flex-shrink-0" />
+            {!sidebarCollapsed && <h1 className="text-xl font-black tracking-tighter text-white uppercase italic">Banelings</h1>}
           </div>
-          {globalActiveUsers > 0 && (
+          {globalActiveUsers > 0 && !sidebarCollapsed && (
             <div className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-blue-500/10 to-emerald-500/10 border border-blue-500/30 rounded-lg">
               <Eye size={14} className="text-blue-400" />
               <span className="text-xs font-bold text-blue-400">
@@ -966,9 +974,14 @@ const App: React.FC = () => {
               </span>
             </div>
           )}
+          {globalActiveUsers > 0 && sidebarCollapsed && (
+            <div className="flex items-center justify-center w-8 h-8 bg-blue-500/10 border border-blue-500/30 rounded-lg" title={`${globalActiveUsers} ${globalActiveUsers === 1 ? 'user' : 'users'} online`}>
+              <Eye size={12} className="text-blue-400" />
+            </div>
+          )}
         </div>
 
-        <div className="space-y-1 flex-1">
+        <div className={`space-y-1 flex-1 ${sidebarCollapsed ? 'mt-4' : 'mt-8'}`}>
           {[
             { id: 'roster', label: 'Roster', icon: Users },
             { id: 'audit', label: 'Audit-Beta', icon: ClipboardList },
@@ -976,25 +989,32 @@ const App: React.FC = () => {
             { id: 'analytics', label: 'Performance', icon: LayoutGrid },
             { id: 'settings', label: 'Config', icon: SettingsIcon },
           ].map((item) => (
-            <button 
+            <button
               key={item.id}
               onClick={() => setActiveTab(item.id as any)}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${activeTab === item.id ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'text-slate-500 hover:bg-white/5 hover:text-white'}`}
+              title={sidebarCollapsed ? item.label : undefined}
+              className={`w-full flex items-center rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${sidebarCollapsed ? 'justify-center px-2 py-3' : 'gap-3 px-4 py-3'} ${activeTab === item.id ? 'bg-[#059669] text-white shadow-lg shadow-emerald-600/20' : 'text-slate-500 hover:bg-white/5 hover:text-white'}`}
             >
-              <item.icon size={16} />
-              {item.label}
+              <item.icon size={16} className="flex-shrink-0" />
+              {!sidebarCollapsed && item.label}
             </button>
           ))}
         </div>
 
-        <div className="pt-8 border-t border-white/5">
-          <div className="bg-black/40 p-4 rounded-xl border border-white/5">
-             <div className="flex items-center justify-between mb-2">
-               <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">Database State</p>
-               <Database className={isUpdating ? "text-indigo-400 animate-pulse" : "text-emerald-500"} size={12} />
-             </div>
-             <p className="text-[10px] text-slate-300">Last Sync: {lastUpdate}</p>
-          </div>
+        <div className={`border-t border-white/5 ${sidebarCollapsed ? 'pt-4' : 'pt-8'}`}>
+          {sidebarCollapsed ? (
+            <div className="flex justify-center" title={`Last Sync: ${lastUpdate}`}>
+              <Database className={isUpdating ? "text-[#059669] animate-pulse" : "text-emerald-500"} size={14} />
+            </div>
+          ) : (
+            <div className="bg-black/40 p-4 rounded-xl border border-white/5">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">Database State</p>
+                <Database className={isUpdating ? "text-[#059669] animate-pulse" : "text-emerald-500"} size={12} />
+              </div>
+              <p className="text-[10px] text-slate-300">Last Sync: {lastUpdate}</p>
+            </div>
+          )}
         </div>
       </nav>
 

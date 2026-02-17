@@ -798,7 +798,7 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
       <div
         className="grid gap-6 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20 mx-auto"
         style={{
-          gridTemplateColumns: `repeat(${currentSplits.length}, minmax(420px, 800px))`,
+          gridTemplateColumns: `repeat(${currentSplits.length}, minmax(520px, 800px))`,
           maxWidth: `${currentSplits.length * 520 + (currentSplits.length - 1) * 24}px`,
         }}
       >

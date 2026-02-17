@@ -796,7 +796,12 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
 
       {/* Main split groups display */}
       <div className={`grid grid-cols-1 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20 ${
-        currentSplits.length >= 5 ? 'xl:grid-cols-3' : 'xl:grid-cols-2'
+        currentSplits.length === 1 ? '' :
+        currentSplits.length === 2 ? 'lg:grid-cols-2' :
+        currentSplits.length === 3 ? 'md:grid-cols-2 xl:grid-cols-3' :
+        currentSplits.length === 4 ? 'md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4' :
+        currentSplits.length === 5 ? 'sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4' :
+                                     'sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6'
       }`}>
         {currentSplits.map((group, groupIdx) => (
           <div 

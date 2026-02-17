@@ -46,7 +46,10 @@ import {
   LogIn,
   LogOut,
   Users,
-  Eye
+  Eye,
+  Minus,
+  Plus,
+  Layers
 } from 'lucide-react';
 
 interface SplitSetupProps {
@@ -234,7 +237,11 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
 
   // NEW: State for locked/pinned armor highlighting - supports multiple locks
   const [lockedArmorTypes, setLockedArmorTypes] = useState<Set<string>>(new Set());
-  
+
+  // State for group count management
+  const [showGroupCountWarning, setShowGroupCountWarning] = useState(false);
+  const [pendingGroupCount, setPendingGroupCount] = useState<number | null>(null);
+
   // Refs and hooks
   const isSavingRef = useRef(false);
   const { toasts, showToast, dismissToast } = useToast();
@@ -459,6 +466,56 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
     };
   };
 
+  // Create a new empty split group using buff/utility structure from an existing group
+  const createEmptyGroup = (groupNumber: number, templateGroup?: SplitGroup): SplitGroup => {
+    const buffs = templateGroup
+      ? templateGroup.buffs.map(b => ({ ...b, active: false }))
+      : [];
+    const utility = templateGroup
+      ? templateGroup.utility.map(u => ({ ...u, active: false }))
+      : [];
+    return {
+      name: `Split Group ${groupNumber}`,
+      avgIlvl: 0,
+      players: [],
+      helpers: [],
+      buffs,
+      utility,
+      armor: { cloth: 0, leather: 0, mail: 0, plate: 0 }
+    };
+  };
+
+  // Request a group count change - shows warning modal
+  const requestGroupCountChange = (newCount: number) => {
+    if (newCount < 2 || newCount > 6) return;
+    if (newCount === currentSplits.length) return;
+    setPendingGroupCount(newCount);
+    setShowGroupCountWarning(true);
+  };
+
+  // Apply the confirmed group count change
+  const applyGroupCountChange = () => {
+    if (pendingGroupCount === null) return;
+    const newCount = pendingGroupCount;
+    const template = currentSplits[0];
+    let newSplits: SplitGroup[];
+
+    if (newCount > currentSplits.length) {
+      newSplits = currentSplits.map(g => updateGroupStats({ ...g, players: [], helpers: [] }));
+      for (let i = currentSplits.length + 1; i <= newCount; i++) {
+        newSplits.push(createEmptyGroup(i, template));
+      }
+    } else {
+      newSplits = currentSplits.slice(0, newCount).map(g =>
+        updateGroupStats({ ...g, players: [], helpers: [] })
+      );
+    }
+
+    setShowGroupCountWarning(false);
+    setPendingGroupCount(null);
+    saveWebSplits(newSplits);
+  };
+
   // Drag and drop handlers
   const handleDragStart = (e: React.DragEvent, playerName: string, charName: string, isMain: boolean, server: string | undefined, fromGroupIdx: number) => {
     e.dataTransfer.setData('playerName', playerName);
@@ -639,6 +696,35 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
             <Share2 size={14} />
             <span className="text-[10px] font-black uppercase tracking-widest">Copy Setup</span>
           </button>
+
+          {/* Group count control */}
+          <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/5 border border-white/5">
+            <Layers size={14} className="text-slate-500" />
+            <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Groups:</span>
+            {isAdmin ? (
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => requestGroupCountChange(currentSplits.length - 1)}
+                  disabled={currentSplits.length <= 2}
+                  className="w-5 h-5 flex items-center justify-center rounded bg-white/5 border border-white/5 text-slate-400 hover:text-white hover:border-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                  title="Remove a group"
+                >
+                  <Minus size={10} />
+                </button>
+                <span className="text-[13px] font-black text-white w-5 text-center">{currentSplits.length}</span>
+                <button
+                  onClick={() => requestGroupCountChange(currentSplits.length + 1)}
+                  disabled={currentSplits.length >= 6}
+                  className="w-5 h-5 flex items-center justify-center rounded bg-white/5 border border-white/5 text-slate-400 hover:text-white hover:border-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                  title="Add a group"
+                >
+                  <Plus size={10} />
+                </button>
+              </div>
+            ) : (
+              <span className="text-[13px] font-black text-white">{currentSplits.length}</span>
+            )}
+          </div>
         </div>
 
         <div className="flex items-center gap-6 px-4">
@@ -709,7 +795,9 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
       </div>
 
       {/* Main split groups display */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
+      <div className={`grid grid-cols-1 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20 ${
+        currentSplits.length >= 5 ? 'xl:grid-cols-3' : 'xl:grid-cols-2'
+      }`}>
         {currentSplits.map((group, groupIdx) => (
           <div 
             key={groupIdx} 
@@ -1348,6 +1436,66 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
                 </button>
                 <button
                   onClick={() => setShowCopyDialog(false)}
+                  className="px-4 py-3 rounded-lg bg-white/5 border border-white/5 text-slate-400 text-[11px] font-black uppercase tracking-widest hover:text-white hover:border-white/10 transition-all"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Group count warning modal */}
+      {showGroupCountWarning && pendingGroupCount !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-[#0c0c0e] border border-white/10 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
+            <div className="p-6 border-b border-white/5 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <AlertTriangle className="text-red-500" size={20} />
+                <div>
+                  <h3 className="text-lg font-black text-white uppercase">Change Group Count</h3>
+                  <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">
+                    {currentSplits.length} &rarr; {pendingGroupCount} groups
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => { setShowGroupCountWarning(false); setPendingGroupCount(null); }}
+                className="p-2 text-slate-500 hover:text-white transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle size={18} className="text-red-400 flex-shrink-0 mt-0.5" />
+                  <div className="space-y-2">
+                    <p className="text-sm font-black text-red-400 uppercase tracking-wide">All character assignments will be cleared</p>
+                    <p className="text-[11px] text-slate-400 leading-relaxed">
+                      Changing the group count will remove every character assignment from all groups across this setup. Every player will remain as a pending slot but will need to be reassigned.
+                    </p>
+                    {pendingGroupCount < currentSplits.length && (
+                      <p className="text-[11px] text-red-400 font-bold leading-relaxed">
+                        Groups {pendingGroupCount + 1} through {currentSplits.length} and all their data will be permanently removed.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={applyGroupCountChange}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-red-600 text-white text-[11px] font-black uppercase tracking-widest hover:bg-red-500 transition-all"
+                >
+                  <Layers size={14} />
+                  Confirm Change
+                </button>
+                <button
+                  onClick={() => { setShowGroupCountWarning(false); setPendingGroupCount(null); }}
                   className="px-4 py-3 rounded-lg bg-white/5 border border-white/5 text-slate-400 text-[11px] font-black uppercase tracking-widest hover:text-white hover:border-white/10 transition-all"
                 >
                   Cancel

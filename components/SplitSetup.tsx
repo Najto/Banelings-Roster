@@ -651,12 +651,14 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
     );
   }
 
+  const gridMaxWidth = `${currentSplits.length * 800 + (currentSplits.length - 1) * 24}px`;
+
   return (
     <div className="space-y-6">
       <Toast toasts={toasts} onDismiss={dismissToast} />
-      
+
       {/* Header section with version selection and sync status */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between bg-[#0c0c0e]/50 p-3 rounded-2xl border border-white/5 gap-4 shadow-xl">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between bg-[#0c0c0e]/50 p-3 rounded-2xl border border-white/5 gap-4 shadow-xl mx-auto" style={{ maxWidth: gridMaxWidth }}>
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="flex flex-wrap p-1 bg-black rounded-xl border border-white/5 gap-1">
             <button
@@ -799,7 +801,7 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
         className="grid gap-6 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20 mx-auto"
         style={{
           gridTemplateColumns: `repeat(${currentSplits.length}, minmax(420px, 800px))`,
-          maxWidth: `${currentSplits.length * 800 + (currentSplits.length - 1) * 24}px`,
+          maxWidth: gridMaxWidth,
         }}
       >
         {currentSplits.map((group, groupIdx) => (

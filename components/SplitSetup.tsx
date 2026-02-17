@@ -799,7 +799,7 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
         className="grid gap-6 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20 mx-auto"
         style={{
           gridTemplateColumns: `repeat(${currentSplits.length}, minmax(420px, 520px))`,
-          maxWidth: `${currentSplits.length * 620 + (currentSplits.length - 1) * 24}px`,
+          maxWidth: `${currentSplits.length * 720 + (currentSplits.length - 1) * 24}px`,
         }}
       >
         {currentSplits.map((group, groupIdx) => (

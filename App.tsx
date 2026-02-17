@@ -1073,7 +1073,7 @@ const App: React.FC = () => {
 
         <div className="mx-auto">
           {activeTab === 'roster' && (
-            <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 space-y-6">
+            <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 space-y-6 max-w-[1600px] mx-auto w-full">
               <StatOverview roster={roster} minIlvl={minIlvl} />
               <div className="flex justify-end">
                 <div className="flex p-1 bg-black rounded-xl border border-white/5">
@@ -1089,7 +1089,7 @@ const App: React.FC = () => {
           )}
           {activeTab === 'audit' && <RosterAudit roster={roster} ilvlThresholds={ilvlThresholds} />}
           {activeTab === 'splits' && <SplitSetup splits={splits} roster={roster} minIlvl={minIlvl} />}
-          {activeTab === 'analytics' && <AnalyticsDashboard roster={roster} />}
+          {activeTab === 'analytics' && <div className="max-w-[1600px] mx-auto w-full"><AnalyticsDashboard roster={roster} /></div>}
           {activeTab === 'settings' && <Settings onRosterUpdate={handleReloadRoster} />}
         </div>
       </main>

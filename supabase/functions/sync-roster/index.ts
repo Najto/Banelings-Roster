@@ -170,15 +170,21 @@ async function enrichCharacter(
   const ns = "profile-eu";
   const base = `https://eu.api.blizzard.com/profile/wow/character/${normalizedRealm}/${normalizedName}`;
 
-  const [summary, stats, achievements, professions, equipment, pvpSummary, reputations, quests, mountsRes, petsRes, toysRes] = await Promise.all([
+  const [summary, stats, achievements, professions] = await Promise.all([
     blizzardFetch(blizzToken, `${base}?namespace=${ns}&locale=en_GB`),
     blizzardFetch(blizzToken, `${base}/statistics?namespace=${ns}&locale=en_GB`),
     blizzardFetch(blizzToken, `${base}/achievements?namespace=${ns}&locale=en_GB`),
     blizzardFetch(blizzToken, `${base}/professions?namespace=${ns}&locale=en_GB`),
+  ]);
+
+  const [equipment, pvpSummary, reputations, quests] = await Promise.all([
     blizzardFetch(blizzToken, `${base}/equipment?namespace=${ns}&locale=en_GB`),
     blizzardFetch(blizzToken, `${base}/pvp-summary?namespace=${ns}&locale=en_GB`),
     blizzardFetch(blizzToken, `${base}/reputations?namespace=${ns}&locale=en_GB`),
     blizzardFetch(blizzToken, `${base}/quests/completed?namespace=${ns}&locale=en_GB`),
+  ]);
+
+  const [mountsRes, petsRes, toysRes] = await Promise.all([
     blizzardFetch(blizzToken, `${base}/collections/mounts?namespace=${ns}&locale=en_GB`),
     blizzardFetch(blizzToken, `${base}/collections/pets?namespace=${ns}&locale=en_GB`),
     blizzardFetch(blizzToken, `${base}/collections/toys?namespace=${ns}&locale=en_GB`),
@@ -499,10 +505,14 @@ Deno.serve(async (req: Request) => {
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
     let force = false;
+    let characterIds: string[] | null = null;
     if (req.method === "POST") {
       try {
         const body = await req.json();
         force = body?.force === true;
+        if (Array.isArray(body?.characterIds) && body.characterIds.length > 0) {
+          characterIds = body.characterIds;
+        }
       } catch {
         // no body or invalid JSON — treat as non-forced
       }
@@ -512,7 +522,9 @@ Deno.serve(async (req: Request) => {
       .from("character_data")
       .select("id, character_name, realm, player_name, role, enriched_data, last_enriched_at");
 
-    if (!force) {
+    if (characterIds) {
+      query = query.in("id", characterIds);
+    } else if (!force) {
       const cutoff = new Date(Date.now() - STALE_THRESHOLD_MS).toISOString();
       query = query.or(`last_enriched_at.is.null,last_enriched_at.lt.${cutoff}`);
     }
@@ -573,7 +585,7 @@ Deno.serve(async (req: Request) => {
       }
     });
 
-    await pLimit(tasks, 5);
+    await pLimit(tasks, 2);
 
     return new Response(JSON.stringify({ message: "Sync complete", synced, failed, total: staleRows.length }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

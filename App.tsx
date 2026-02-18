@@ -203,29 +203,46 @@ const App: React.FC = () => {
     setError(null);
     try {
       const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-roster`;
-      const res = await fetch(apiUrl, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ force: true }),
-      });
+      const headers = {
+        'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+        'Content-Type': 'application/json',
+      };
 
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(`Sync failed: ${text}`);
+      const allIds = roster.map(p => p.characters.map(c => c.id)).flat().filter(Boolean);
+      const CHUNK_SIZE = 5;
+      const chunks: string[][] = [];
+      for (let i = 0; i < allIds.length; i += CHUNK_SIZE) {
+        chunks.push(allIds.slice(i, i + CHUNK_SIZE));
       }
 
-      const result = await res.json();
+      let totalSynced = 0;
+      let totalFailed = 0;
+
+      for (const chunk of chunks) {
+        const res = await fetch(apiUrl, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ characterIds: chunk }),
+        });
+
+        if (!res.ok) {
+          const text = await res.text();
+          throw new Error(`Sync failed: ${text}`);
+        }
+
+        const result = await res.json();
+        totalSynced += result.synced || 0;
+        totalFailed += result.failed || 0;
+      }
+
       const updatedRoster = await persistenceService.loadRosterFromDatabase();
       setRoster(updatedRoster);
       await loadLastSyncTime();
 
-      if (result.failed > 0) {
-        showToast(`Sync complete: ${result.synced} updated, ${result.failed} failed`, 'info', 5000);
+      if (totalFailed > 0) {
+        showToast(`Sync complete: ${totalSynced} updated, ${totalFailed} failed`, 'info', 5000);
       } else {
-        showToast(`Sync complete: ${result.synced} characters updated`, 'success', 4000);
+        showToast(`Sync complete: ${totalSynced} characters updated`, 'success', 4000);
       }
     } catch (e) {
       console.error("Sync error:", e);
@@ -234,7 +251,7 @@ const App: React.FC = () => {
       setIsUpdating(false);
       isSyncingRef.current = false;
     }
-  }, [loadLastSyncTime, showToast]);
+  }, [roster, loadLastSyncTime, showToast]);
 
   // Initial Data Load - Load from Database
   useEffect(() => {

@@ -150,45 +150,6 @@ const App: React.FC = () => {
     }
   }, []);
 
-  const syncAll = useCallback(async () => {
-    setIsUpdating(true);
-    isSyncingRef.current = true;
-    setError(null);
-    try {
-      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-roster`;
-      const res = await fetch(apiUrl, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ force: true }),
-      });
-
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(`Sync failed: ${text}`);
-      }
-
-      const result = await res.json();
-      const updatedRoster = await persistenceService.loadRosterFromDatabase();
-      setRoster(updatedRoster);
-      await loadLastSyncTime();
-
-      if (result.failed > 0) {
-        showToast(`Sync complete: ${result.synced} updated, ${result.failed} failed`, 'info', 5000);
-      } else {
-        showToast(`Sync complete: ${result.synced} characters updated`, 'success', 4000);
-      }
-    } catch (e) {
-      console.error("Sync error:", e);
-      setError("Sync failed. Check server logs or API credentials.");
-    } finally {
-      setIsUpdating(false);
-      isSyncingRef.current = false;
-    }
-  }, [loadLastSyncTime, showToast]);
-
   // Helper to format last sync time
   const formatLastSyncTime = useCallback((date: Date | null): string => {
     if (!date) return 'Never';
@@ -235,6 +196,45 @@ const App: React.FC = () => {
       console.error('Failed to load last sync time:', e);
     }
   }, [formatLastSyncTime]);
+
+  const syncAll = useCallback(async () => {
+    setIsUpdating(true);
+    isSyncingRef.current = true;
+    setError(null);
+    try {
+      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-roster`;
+      const res = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ force: true }),
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`Sync failed: ${text}`);
+      }
+
+      const result = await res.json();
+      const updatedRoster = await persistenceService.loadRosterFromDatabase();
+      setRoster(updatedRoster);
+      await loadLastSyncTime();
+
+      if (result.failed > 0) {
+        showToast(`Sync complete: ${result.synced} updated, ${result.failed} failed`, 'info', 5000);
+      } else {
+        showToast(`Sync complete: ${result.synced} characters updated`, 'success', 4000);
+      }
+    } catch (e) {
+      console.error("Sync error:", e);
+      setError("Sync failed. Check server logs or API credentials.");
+    } finally {
+      setIsUpdating(false);
+      isSyncingRef.current = false;
+    }
+  }, [loadLastSyncTime, showToast]);
 
   // Initial Data Load - Load from Database
   useEffect(() => {

@@ -21,19 +21,19 @@ export const getCurrentResetTime = (): Date => {
   return currentReset;
 };
 
-/**
- * Buckets recent runs into 4 weeks of history: [This Week, Last Week, 2 Weeks Ago, 3 Weeks Ago].
- * Only counts keys >= Level 10.
- */
+const SEASON_START = new Date('2024-11-19T08:00:00Z');
+
 const calculateWeeklyHistory = (runs: MPlusRun[], resetTime: Date): number[] => {
-  const history = [0, 0, 0, 0]; // [This ID, -1 Week, -2 Weeks, -3 Weeks]
   const oneWeekMs = 7 * 24 * 60 * 60 * 1000;
   const resetTimeMs = resetTime.getTime();
-  
+  const seasonStartMs = SEASON_START.getTime();
+  const totalWeeks = Math.ceil((resetTimeMs - seasonStartMs) / oneWeekMs) + 1;
+  const history = new Array(totalWeeks).fill(0);
+
   runs.forEach(run => {
     if (run.mythic_level < 10) return;
     const runTimeMs = new Date(run.completed_at).getTime();
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < totalWeeks; i++) {
       const weekStart = resetTimeMs - (i * oneWeekMs);
       const weekEnd = weekStart + oneWeekMs;
       if (runTimeMs >= weekStart && runTimeMs < weekEnd) {

@@ -2,7 +2,7 @@
 import React, { useMemo, useState } from 'react';
 import { Player, Character, WoWClass, CLASS_COLORS, PlayerRole } from '../types';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, LineChart, Line, LabelList } from 'recharts';
-import { Trophy, Zap, Shield, TrendingUp, Users } from 'lucide-react';
+import { Trophy, Zap, Shield, TrendingUp, Users, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface AnalyticsDashboardProps {
   roster: Player[];
@@ -11,6 +11,7 @@ interface AnalyticsDashboardProps {
 export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ roster }) => {
   const [chartMode, setChartMode] = useState<'mains' | 'all'>('mains');
   const [activityMode, setActivityMode] = useState<'id' | 'all'>('id');
+  const [activityWeek, setActivityWeek] = useState(0);
 
   const allChars = useMemo(() => {
     return roster.flatMap(p => [
@@ -54,14 +55,32 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ roster }
   const topActivity = useMemo(() => {
     return [...leaderboardChars].sort((a, b) => {
       if (activityMode === 'id') {
-        return (b.weeklyTenPlusCount || 0) - (a.weeklyTenPlusCount || 0);
+        return (b.weeklyHistory?.[activityWeek] ?? 0) - (a.weeklyHistory?.[activityWeek] ?? 0);
       } else {
         const sumA = (a.weeklyHistory || []).reduce((acc, curr) => acc + curr, 0);
         const sumB = (b.weeklyHistory || []).reduce((acc, curr) => acc + curr, 0);
         return sumB - sumA;
       }
     });
-  }, [leaderboardChars, activityMode]);
+  }, [leaderboardChars, activityMode, activityWeek]);
+
+  const maxActivityWeek = useMemo(() => {
+    let max = 0;
+    leaderboardChars.forEach(c => {
+      if (c.weeklyHistory && c.weeklyHistory.length - 1 > max) {
+        max = c.weeklyHistory.length - 1;
+      }
+    });
+    return max;
+  }, [leaderboardChars]);
+
+  const weekLabel = (week: number): string => {
+    if (week === 0) return 'Diese ID';
+    if (week === 1) return 'Letzte Wo.';
+    if (week === 2) return 'Vor 2 Wo.';
+    if (week === 3) return 'Vor 3 Wo.';
+    return `Vor ${week} Wo.`;
+  };
 
   // Gilden-Aktivitäts-Trend (Summe über alle Chars)
   const activityTrend = useMemo(() => {
@@ -248,12 +267,31 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ roster }
               <h4 className="text-[10px] font-black uppercase tracking-widest text-emerald-500">Activity Ranking</h4>
             </div>
             <div className="flex items-center gap-2">
+              {activityMode === 'id' && (
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => setActivityWeek(w => Math.min(w + 1, maxActivityWeek))}
+                    disabled={activityWeek >= maxActivityWeek}
+                    className="p-0.5 rounded text-slate-500 hover:text-white disabled:opacity-20 transition-colors"
+                  >
+                    <ChevronLeft size={12} />
+                  </button>
+                  <span className="text-[8px] font-black text-slate-400 uppercase w-16 text-center">{weekLabel(activityWeek)}</span>
+                  <button
+                    onClick={() => setActivityWeek(w => Math.max(w - 1, 0))}
+                    disabled={activityWeek === 0}
+                    className="p-0.5 rounded text-slate-500 hover:text-white disabled:opacity-20 transition-colors"
+                  >
+                    <ChevronRight size={12} />
+                  </button>
+                </div>
+              )}
               <div className="flex p-1 bg-black rounded-lg border border-white/5">
-                <button 
-                  onClick={() => setActivityMode('id')}
+                <button
+                  onClick={() => { setActivityMode('id'); setActivityWeek(0); }}
                   className={`px-2 py-0.5 rounded text-[8px] font-black uppercase transition-all ${activityMode === 'id' ? 'bg-emerald-600 text-white' : 'text-slate-500'}`}
                 >ID</button>
-                <button 
+                <button
                   onClick={() => setActivityMode('all')}
                   className={`px-2 py-0.5 rounded text-[8px] font-black uppercase transition-all ${activityMode === 'all' ? 'bg-emerald-600 text-white' : 'text-slate-500'}`}
                 >ALL</button>
@@ -262,8 +300,8 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ roster }
           </div>
           <div className="p-2 space-y-1 max-h-[600px] overflow-y-auto custom-scrollbar">
             {topActivity.map((char, i) => {
-              const value = activityMode === 'id' 
-                ? (char.weeklyTenPlusCount || 0)
+              const value = activityMode === 'id'
+                ? (char.weeklyHistory?.[activityWeek] ?? 0)
                 : (char.weeklyHistory || []).reduce((acc, curr) => acc + curr, 0);
 
               return (

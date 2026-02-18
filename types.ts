@@ -254,6 +254,7 @@ export interface RaidBossKill {
  * Represents a single WoW Character (Main or Alt).
  */
 export interface Character {
+  id?: string;
   name: string;
   className: WoWClass;
   spec?: string;

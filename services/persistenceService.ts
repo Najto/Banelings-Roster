@@ -520,6 +520,7 @@ export const persistenceService = {
         // Map database records to Character objects with split_order
         const charactersWithOrder = memberCharacters.map((dbChar: any) => ({
           character: {
+            id: dbChar.id,
             name: dbChar.character_name,
             className: dbChar.class_name,
             server: dbChar.realm,

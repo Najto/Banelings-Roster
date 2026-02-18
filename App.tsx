@@ -208,7 +208,7 @@ const App: React.FC = () => {
         'Content-Type': 'application/json',
       };
 
-      const allIds = roster.map(p => p.characters.map(c => c.id)).flat().filter(Boolean);
+      const allIds = roster.map(p => [p.mainCharacter, ...(p.splits || [])].filter(Boolean).map(c => c.id)).flat().filter(Boolean);
       const CHUNK_SIZE = 5;
       const chunks: string[][] = [];
       for (let i = 0; i < allIds.length; i += CHUNK_SIZE) {

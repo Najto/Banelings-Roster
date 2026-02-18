@@ -9,8 +9,8 @@ const corsHeaders = {
 
 const WCL_TOKEN_URL = "https://www.warcraftlogs.com/oauth/token";
 const WCL_API_URL = "https://www.warcraftlogs.com/api/v2/client";
-const WCL_CLIENT_ID = "a1043cfd-5817-41fb-bcae-9c0790f09a5e";
-const WCL_CLIENT_SECRET = "tZ87YJXe7nf4iMtZz3DGpqicDmJymQiFstrULDuv";
+const WCL_CLIENT_ID = Deno.env.get("WCL_CLIENT_ID") ?? "";
+const WCL_CLIENT_SECRET = Deno.env.get("WCL_CLIENT_SECRET") ?? "";
 
 const EMPTY_RESPONSE = { rankings: [], allStarPoints: 0, weeklyRaidKills: [], mythicRankings: [], highestDifficulty: 0 };
 

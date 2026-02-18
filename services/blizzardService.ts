@@ -1,8 +1,8 @@
 
 import { WoWClass } from '../types';
 
-const CLIENT_ID = "6297890373d64a43920eebba7395ddd7"; 
-const CLIENT_SECRET = "2aik8t8euM3mGGYDvUrELn9lNVarodGr";
+const CLIENT_ID = import.meta.env.VITE_BLIZZARD_CLIENT_ID || "";
+const CLIENT_SECRET = import.meta.env.VITE_BLIZZARD_CLIENT_SECRET || "";
 
 /**
  * Fetches an OAuth Client Credentials token from Battle.net.

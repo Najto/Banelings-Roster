@@ -564,15 +564,6 @@ const App: React.FC = () => {
     };
   }, []);
 
-  useEffect(() => {
-    const AUTO_REFRESH_MS = 60 * 60 * 1000;
-    const intervalId = setInterval(() => {
-      if (!isSyncingRef.current) {
-        syncAll();
-      }
-    }, AUTO_REFRESH_MS);
-    return () => clearInterval(intervalId);
-  }, [syncAll]);
 
   useEffect(() => {
     if (activeTab !== 'settings') {

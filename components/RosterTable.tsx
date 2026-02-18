@@ -362,7 +362,7 @@ export const RosterTable: React.FC<RosterTableProps> = ({ roster, minIlvl }) => 
                                   <h5 className="text-[9px] font-black uppercase tracking-widest text-slate-500">Weekly History</h5>
                                 </div>
                                 <div className="space-y-3">
-                                  {char.weeklyHistory?.map((count, i) => (
+                                  {char.weeklyHistory?.slice(0, 4).map((count, i) => (
                                     <div key={i} className="flex items-center justify-between">
                                       <span className="text-[9px] font-bold text-slate-600 uppercase">
                                         {i === 0 ? 'Aktuelle ID' : `Vor ${i} Wo.`}

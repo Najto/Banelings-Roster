@@ -498,11 +498,26 @@ Deno.serve(async (req: Request) => {
   try {
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    const cutoff = new Date(Date.now() - STALE_THRESHOLD_MS).toISOString();
-    const { data: staleRows, error: fetchError } = await supabase
+    let force = false;
+    if (req.method === "POST") {
+      try {
+        const body = await req.json();
+        force = body?.force === true;
+      } catch {
+        // no body or invalid JSON — treat as non-forced
+      }
+    }
+
+    let query = supabase
       .from("character_data")
-      .select("id, character_name, realm, player_name, role, enriched_data, last_enriched_at")
-      .or(`last_enriched_at.is.null,last_enriched_at.lt.${cutoff}`);
+      .select("id, character_name, realm, player_name, role, enriched_data, last_enriched_at");
+
+    if (!force) {
+      const cutoff = new Date(Date.now() - STALE_THRESHOLD_MS).toISOString();
+      query = query.or(`last_enriched_at.is.null,last_enriched_at.lt.${cutoff}`);
+    }
+
+    const { data: staleRows, error: fetchError } = await query;
 
     if (fetchError) {
       console.error("Failed to fetch stale characters:", fetchError);

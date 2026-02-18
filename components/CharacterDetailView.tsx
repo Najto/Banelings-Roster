@@ -365,7 +365,7 @@ export const CharacterDetailView: React.FC<CharacterDetailViewProps> = ({ roster
                 <Zap size={14} className="text-emerald-500" /> Weekly Activity
               </h4>
               <div className="space-y-4">
-                {displayChar.weeklyHistory?.map((count, i) => (
+                {displayChar.weeklyHistory?.slice(0, 4).map((count, i) => (
                   <div key={i} className="flex flex-col gap-1.5">
                     <div className="flex justify-between px-1">
                       <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest">{i === 0 ? 'This ID' : `${i} week${i > 1 ? 's' : ''} ago`}</span>

@@ -923,7 +923,7 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
                                         {isOrphaned && <AlertTriangle size={10} className="text-red-500" />}
                                         <span
                                           className="text-xs font-black truncate"
-                                          style={{ color: (assignedChar as any).isMainMismatch ? '#ef4444' : CLASS_COLORS[assignedChar.className] }}
+                                          style={{ color: CLASS_COLORS[assignedChar.className] }}
                                         >
                                           {assignedChar.name}
                                         </span>

@@ -1421,24 +1421,22 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
                             overrideIsMain(editMember.groupIndex, editMember.memberName, next);
                           }
                         }}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault();
-                            const next = !editMember.isMainOverride;
-                            setEditMember(prev => prev ? { ...prev, isMainOverride: next } : prev);
-                            if (activePlayerInGroup) {
-                              overrideIsMain(editMember.groupIndex, editMember.memberName, next);
-                            }
-                          }
-                        }}
-                        className={`relative w-10 h-5 rounded-full transition-colors duration-300
-                          focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/60
-                          ${editMember.isMainOverride ? 'bg-amber-500' : 'bg-slate-700'}`}
+                        className="relative w-12 h-5 rounded-full bg-slate-700 overflow-hidden
+                          focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/60"
                       >
+                        {/* Colored half */}
+                        <span
+                          className={`absolute inset-0 transition-transform duration-300 ease-in-out
+                            ${editMember.isMainOverride ? 'translate-x-0' : 'translate-x-1/2'}
+                            bg-amber-500`}
+                          style={{ width: '50%' }}
+                        />
+                      
+                        {/* Knob */}
                         <span
                           className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow
                             transition-transform duration-300 ease-in-out
-                            ${editMember.isMainOverride ? 'translate-x-0' : 'translate-x-5'}`}
+                            ${editMember.isMainOverride ? 'translate-x-0' : 'translate-x-6'}`}
                         />
                       </button>
                     

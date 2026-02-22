@@ -28,6 +28,29 @@ const SLOT_MAP: Record<string, string> = {
 
 const DIFFICULTY_MAP: Record<number, string> = { 3: "Normal", 4: "Heroic", 5: "Mythic" };
 
+const SEASON_START = new Date("2024-11-19T08:00:00Z");
+
+function calculateWeeklyHistory(runs: any[], resetTimeMs: number): number[] {
+  const oneWeekMs = 7 * 24 * 60 * 60 * 1000;
+  const seasonStartMs = SEASON_START.getTime();
+  const totalWeeks = Math.ceil((resetTimeMs - seasonStartMs) / oneWeekMs) + 1;
+  const history = new Array(totalWeeks).fill(0);
+
+  for (const run of runs) {
+    if ((run.mythic_level || 0) < 10) continue;
+    const runTimeMs = new Date(run.completed_at).getTime();
+    for (let i = 0; i < totalWeeks; i++) {
+      const weekStart = resetTimeMs - i * oneWeekMs;
+      const weekEnd = weekStart + oneWeekMs;
+      if (runTimeMs >= weekStart && runTimeMs < weekEnd) {
+        history[i]++;
+        break;
+      }
+    }
+  }
+  return history;
+}
+
 const DEFAULT_RAID = {
   raidName: "Liberation of Undermine",
   raidSlug: "liberation-of-undermine",
@@ -434,7 +457,8 @@ async function enrichCharacter(
     thumbnailUrl: summary?.character_media?.href || rio?.thumbnail_url || existingData?.thumbnailUrl,
     guild: summary?.guild?.name || existingData?.guild,
     mPlusRating: rio?.mythic_plus_scores_by_season?.[0]?.scores?.all || existingData?.mPlusRating || 0,
-    weeklyTenPlusCount: (rio?.mythic_plus_weekly_highest_level_runs || []).filter((r: any) => r.mythic_level >= 10).length,
+    weeklyHistory: calculateWeeklyHistory(rio?.mythic_plus_recent_runs || [], getResetTimestamp()),
+    weeklyTenPlusCount: calculateWeeklyHistory(rio?.mythic_plus_recent_runs || [], getResetTimestamp())[0] ?? 0,
     recentRuns: (rio?.mythic_plus_recent_runs || []).slice(0, 10),
     raidProgression: rio?.raid_progression?.[raidConfig.raidSlug] || existingData?.raidProgression,
     mPlusRanks: rio?.mythic_plus_ranks || existingData?.mPlusRanks,

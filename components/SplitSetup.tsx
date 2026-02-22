@@ -1390,7 +1390,77 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
                 return (
                   <>
                     {/* Main / Twink toggle */}
+                    {/* Main / Twink toggle */}
+                    <div className="flex items-center justify-between p-3 rounded-xl bg-white/[0.02] border border-white/5 mb-2">
+                      {/* Main label */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!editMember.isMainOverride) {
+                            const next = true;
+                            setEditMember(prev => prev ? { ...prev, isMainOverride: next } : prev);
+                            if (activePlayerInGroup) {
+                              overrideIsMain(editMember.groupIndex, editMember.memberName, next);
+                            }
+                          }
+                        }}
+                        className={`text-[10px] font-black uppercase tracking-widest transition-colors
+                          ${editMember.isMainOverride ? 'text-amber-400' : 'text-slate-600'}`}
+                      >
+                        Main
+                      </button>
                     
+                      {/* Toggle */}
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={editMember.isMainOverride}
+                        onClick={() => {
+                          const next = !editMember.isMainOverride;
+                          setEditMember(prev => prev ? { ...prev, isMainOverride: next } : prev);
+                          if (activePlayerInGroup) {
+                            overrideIsMain(editMember.groupIndex, editMember.memberName, next);
+                          }
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            const next = !editMember.isMainOverride;
+                            setEditMember(prev => prev ? { ...prev, isMainOverride: next } : prev);
+                            if (activePlayerInGroup) {
+                              overrideIsMain(editMember.groupIndex, editMember.memberName, next);
+                            }
+                          }
+                        }}
+                        className={`relative w-10 h-5 rounded-full transition-colors duration-300
+                          focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/60
+                          ${editMember.isMainOverride ? 'bg-amber-500' : 'bg-slate-700'}`}
+                      >
+                        <span
+                          className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow
+                            transition-transform duration-300 ease-in-out
+                            ${editMember.isMainOverride ? 'translate-x-5' : 'translate-x-0'}`}
+                        />
+                      </button>
+                    
+                      {/* Twink label */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (editMember.isMainOverride) {
+                            const next = false;
+                            setEditMember(prev => prev ? { ...prev, isMainOverride: next } : prev);
+                            if (activePlayerInGroup) {
+                              overrideIsMain(editMember.groupIndex, editMember.memberName, next);
+                            }
+                          }
+                        }}
+                        className={`text-[10px] font-black uppercase tracking-widest transition-colors
+                          ${!editMember.isMainOverride ? 'text-slate-300' : 'text-slate-600'}`}
+                      >
+                        Twink
+                      </button>
+                    </div>
 
                     {allChars.map((char, i) => {
                       const isUsedElsewhere = assignedInOtherGroups.some(p => isSameCharacter(p, char));

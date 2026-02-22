@@ -1,5 +1,5 @@
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { Player, Character, PlayerRole, ROLE_PRIORITY, CLASS_COLORS } from '../types';
 import { Shield, Heart, Sword, Target, Trash2, UserPlus, ChevronDown } from 'lucide-react';
 
@@ -205,6 +205,17 @@ const RoleChangeDropdown: React.FC<{
 }> = ({ playerName, currentRole, onChangeRole }) => {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
+  const buttonRef = useRef<HTMLButtonElement>(null);
+
+  const handleToggle = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!open && buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      setMenuPos({ top: rect.bottom + 4, left: rect.left });
+    }
+    setOpen(!open);
+  };
 
   const handleSelect = async (role: PlayerRole) => {
     if (role === currentRole) { setOpen(false); return; }
@@ -220,7 +231,8 @@ const RoleChangeDropdown: React.FC<{
   return (
     <div className="relative">
       <button
-        onClick={(e) => { e.stopPropagation(); setOpen(!open); }}
+        ref={buttonRef}
+        onClick={handleToggle}
         disabled={loading}
         className="ml-1 p-0.5 rounded opacity-0 group-hover/row:opacity-100 transition-opacity text-slate-500 hover:text-slate-300 hover:bg-white/10 disabled:opacity-50"
         title="Change role"
@@ -234,7 +246,10 @@ const RoleChangeDropdown: React.FC<{
       {open && (
         <>
           <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} />
-          <div className="absolute left-0 top-full mt-1 z-40 bg-[#0a0a0f] border border-white/10 rounded-lg shadow-2xl py-1 min-w-[110px]">
+          <div
+            className="fixed z-40 bg-[#0a0a0f] border border-white/10 rounded-lg shadow-2xl py-1 min-w-[110px]"
+            style={{ top: menuPos.top, left: menuPos.left }}
+          >
             {ROLE_CHANGE_OPTIONS.map(({ role, icon, color }) => (
               <button
                 key={role}

@@ -1438,7 +1438,7 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
                         <span
                           className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow
                             transition-transform duration-300 ease-in-out
-                            ${editMember.isMainOverride ? 'translate-x-5' : 'translate-x-0'}`}
+                            ${editMember.isMainOverride ? 'translate-x-0' : 'translate-x-5'}
                         />
                       </button>
                     

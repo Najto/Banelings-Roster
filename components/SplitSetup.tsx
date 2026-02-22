@@ -235,6 +235,9 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
   const [highlightedArmorType, setHighlightedArmorType] = useState<string | null>(null);
   const [highlightedGroupIndex, setHighlightedGroupIndex] = useState<number | null>(null);
 
+  // State for mismatch badge hover highlighting (global across all groups)
+  const [isMismatchHovered, setIsMismatchHovered] = useState(false);
+
   // NEW: State for locked/pinned armor highlighting - supports multiple locks
   const [lockedArmorTypes, setLockedArmorTypes] = useState<Set<string>>(new Set());
 
@@ -861,6 +864,22 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
                     {group.players.filter(p => p.isOrphaned).length} Deleted
                   </div>
                 )}
+
+                {/* Mismatch badge - hovering highlights all mismatched chars across all groups */}
+                {(() => {
+                  const mismatchCount = group.players.filter(p => (p as any).isMainMismatch).length;
+                  if (mismatchCount === 0) return null;
+                  return (
+                    <div
+                      className="px-3 py-1 bg-orange-500/10 rounded-lg border border-orange-500/20 text-[10px] font-black uppercase tracking-widest text-orange-400 flex items-center gap-1.5 cursor-default select-none hover:bg-orange-500/20 hover:border-orange-500/40 transition-colors"
+                      onMouseEnter={() => setIsMismatchHovered(true)}
+                      onMouseLeave={() => setIsMismatchHovered(false)}
+                    >
+                      <AlertTriangle size={10} />
+                      {mismatchCount} Mismatch
+                    </div>
+                  );
+                })()}
               </div>
             </div>
 
@@ -904,7 +923,11 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
                                 } ${
                                   // NEW: Highlight effect for armor type hover or lock with armor-specific colors
                                   (() => {
-                                    if (isOrphaned || !assignedChar.isMain) return '';
+                                    if (isOrphaned) return '';
+                                    if (isMismatchHovered && (assignedChar as any).isMainMismatch) {
+                                      return '!border-orange-500 !bg-orange-500/10';
+                                    }
+                                    if (!assignedChar.isMain) return '';
                                     const charArmorType = getArmorTypeForClass(assignedChar.className);
                                     const isHovered = highlightedArmorType === charArmorType && highlightedGroupIndex === groupIdx;
                                     const isLocked = lockedArmorTypes.has(`${groupIdx}-${charArmorType}`);
@@ -994,7 +1017,7 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
                                 draggable={true}
                                 onDragStart={(e) => handleDragStart(e, orphanedChar.playerName, orphanedChar.name, orphanedChar.isMain, orphanedChar.server, groupIdx)}
                                 onClick={() => setEditMember({ memberName: orphanedChar.playerName, groupIndex: groupIdx })}
-                                className="flex flex-col p-2.5 rounded-xl transition-all group cursor-grab active:cursor-grabbing bg-red-500/[0.03] border-2 border-red-500 hover:border-red-400 hover:bg-red-500/[0.06]"
+                                className={`flex flex-col p-2.5 rounded-xl transition-all group cursor-grab active:cursor-grabbing ${isMismatchHovered && (orphanedChar as any).isMainMismatch ? 'bg-orange-500/10 border-2 border-orange-500 hover:border-orange-400 hover:bg-orange-500/15' : 'bg-red-500/[0.03] border-2 border-red-500 hover:border-red-400 hover:bg-red-500/[0.06]'}`}
                               >
                                 <div className="flex items-center justify-between">
                                   <div className="flex items-center gap-3">

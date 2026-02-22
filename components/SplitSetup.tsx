@@ -917,20 +917,50 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
                                 }`}
                               >
                                 <div className="flex items-center justify-between">
-                                  <div className="flex items-center gap-3">
+                                  <div className="flex items-center gap-3 group">
                                     <div className="flex flex-col">
+                                      {/* Character name */}
                                       <div className="flex items-center gap-1.5">
-                                        {isOrphaned && <AlertTriangle size={10} className="text-red-500" />}
-                                        <span className="text-xs font-black truncate" style={{ color: CLASS_COLORS[assignedChar.className] }}>{assignedChar.name}</span>
+                                        {isOrphaned && (
+                                          <AlertTriangle size={10} className="text-red-500" />
+                                        )}
+                                
+                                        <span
+                                          className="text-xs font-black truncate"
+                                          style={{
+                                            color: (assignedChar as any).isMainMismatch
+                                              ? '#ef4444' // red on mismatch
+                                              : CLASS_COLORS[assignedChar.className]
+                                          }}
+                                        >
+                                          {assignedChar.name}
+                                        </span>
                                       </div>
+                                
+                                      {/* Main / Twink badge */}
                                       <div className="flex items-center gap-1.5">
-                                          <span className={`text-[8px] font-bold uppercase px-1 rounded ${(assignedChar as any).isMainMismatch ? 'bg-orange-500/15 text-orange-400' : assignedChar.isMain ? 'bg-amber-500/10 text-amber-500' : 'bg-slate-800 text-slate-500'}`}>
-                                              {assignedChar.isMain ? 'Main' : 'Twink'}{(assignedChar as any).isMainMismatch ? '!' : ''}
-                                          </span>
-                                          <span className="text-[7px] text-slate-600 font-bold uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">({member.name})</span>
+                                        <span
+                                          className={`text-[8px] font-bold uppercase px-1 rounded
+                                            ${
+                                              (assignedChar as any).isMainMismatch
+                                                ? 'bg-red-500/25 text-red-500 animate-pulse'
+                                                : assignedChar.isMain
+                                                  ? 'bg-amber-500/10 text-amber-500'
+                                                  : 'bg-slate-800 text-slate-500'
+                                            }
+                                          `}
+                                        >
+                                          {assignedChar.isMain ? 'Main' : 'Twink'}
+                                          {(assignedChar as any).isMainMismatch && ' — MISMATCH'}
+                                        </span>
+                                
+                                        <span className="text-[7px] text-slate-600 font-bold uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">
+                                          ({member.name})
+                                        </span>
                                       </div>
                                     </div>
                                   </div>
+                                </div>
                                   <div className="flex items-center gap-2">
                                       <span className={`text-[11px] font-black px-1.5 py-0.5 rounded ${assignedChar.ilvl >= minIlvl ? 'text-indigo-400 bg-indigo-400/5' : 'text-red-500 bg-red-500/10'}`}>
                                           {assignedChar.ilvl}

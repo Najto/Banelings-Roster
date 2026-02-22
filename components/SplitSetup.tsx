@@ -206,7 +206,7 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
   const [currentSplits, setCurrentSplits] = useState<SplitGroup[]>([]);
   
   // State for editing members
-  const [editMember, setEditMember] = useState<{ memberName: string, groupIndex: number } | null>(null);
+  const [editMember, setEditMember] = useState<{ memberName: string, groupIndex: number, isMainOverride: boolean } | null>(null);
   
   // State for sync status
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'synced' | 'error'>('idle');
@@ -597,10 +597,10 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
   };
 
   // Change character assignment
-  const changeCharacter = (groupIndex: number, playerName: string, newChar: Character | null) => {
+  const changeCharacter = (groupIndex: number, playerName: string, newChar: Character | null, isMainOverride?: boolean) => {
     const newSplits = [...currentSplits];
     const group = newSplits[groupIndex];
-    
+
     group.players = group.players.filter(p => p.playerName !== playerName);
 
     if (newChar) {
@@ -610,7 +610,7 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
         playerName: playerName,
         className: newChar.className,
         ilvl: newChar.itemLevel,
-        isMain: !!newChar.isMain,
+        isMain: isMainOverride !== undefined ? isMainOverride : !!newChar.isMain,
         role: playerObj?.role || PlayerRole.UNKNOWN,
         server: newChar.server
       });
@@ -619,6 +619,17 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
     newSplits[groupIndex] = updateGroupStats(group);
     saveWebSplits(newSplits);
     setEditMember(null);
+  };
+
+  // Override isMain for an already-assigned character
+  const overrideIsMain = (groupIndex: number, playerName: string, newIsMain: boolean) => {
+    const newSplits = [...currentSplits];
+    const group = newSplits[groupIndex];
+    group.players = group.players.map(p =>
+      p.playerName === playerName ? { ...p, isMain: newIsMain } : p
+    );
+    newSplits[groupIndex] = updateGroupStats(group);
+    saveWebSplits(newSplits);
   };
 
   // Helper management functions
@@ -924,7 +935,7 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
                                 key={member.id}
                                 draggable={true}
                                 onDragStart={(e) => handleDragStart(e, member.name, assignedChar.name, assignedChar.isMain, assignedChar.server, groupIdx)}
-                                onClick={() => setEditMember({ memberName: member.name, groupIndex: groupIdx })}
+                                onClick={() => { const ac = group.players.find(p => p.playerName === member.name && !p.isOrphaned); setEditMember({ memberName: member.name, groupIndex: groupIdx, isMainOverride: ac ? !!ac.isMain : false }); }}
                                 className={`flex flex-col p-2.5 rounded-xl transition-all duration-300 group cursor-grab active:cursor-grabbing ${
                                   isOrphaned
                                     ? 'bg-red-500/[0.03] border-2 border-red-500 hover:border-red-400 hover:bg-red-500/[0.06]'
@@ -997,7 +1008,7 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
                             return (
                               <div
                                 key={member.id}
-                                onClick={() => setEditMember({ memberName: member.name, groupIndex: groupIdx })}
+                                onClick={() => setEditMember({ memberName: member.name, groupIndex: groupIdx, isMainOverride: false })}
                                 className="flex items-center justify-between p-2.5 rounded-xl bg-white/[0.01] border border-dashed border-white/5 hover:border-indigo-500/30 hover:bg-white/[0.03] transition-all group cursor-pointer"
                               >
                                 <div className="flex items-center gap-3">
@@ -1025,7 +1036,7 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
                               <div
                                 draggable={true}
                                 onDragStart={(e) => handleDragStart(e, orphanedChar.playerName, orphanedChar.name, orphanedChar.isMain, orphanedChar.server, groupIdx)}
-                                onClick={() => setEditMember({ memberName: orphanedChar.playerName, groupIndex: groupIdx })}
+                                onClick={() => setEditMember({ memberName: orphanedChar.playerName, groupIndex: groupIdx, isMainOverride: !!orphanedChar.isMain })}
                                 className={`flex flex-col p-2.5 rounded-xl transition-all group cursor-grab active:cursor-grabbing ${isMismatchHovered && (orphanedChar as any).isMainMismatch ? 'bg-orange-500/10 border-2 border-orange-500 hover:border-orange-400 hover:bg-orange-500/15' : 'bg-red-500/[0.03] border-2 border-red-500 hover:border-red-400 hover:bg-red-500/[0.06]'}`}
                               >
                                 <div className="flex items-center justify-between">
@@ -1378,6 +1389,24 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
 
                 return (
                   <>
+                    {/* Main / Twink toggle */}
+                    <div className="flex items-center justify-between p-3 rounded-xl bg-white/[0.02] border border-white/5 mb-2">
+                      <span className={`text-[10px] font-black uppercase tracking-widest transition-colors ${editMember.isMainOverride ? 'text-amber-400' : 'text-slate-600'}`}>Main</span>
+                      <button
+                        onClick={() => {
+                          const next = !editMember.isMainOverride;
+                          setEditMember(prev => prev ? { ...prev, isMainOverride: next } : prev);
+                          if (activePlayerInGroup) {
+                            overrideIsMain(editMember.groupIndex, editMember.memberName, next);
+                          }
+                        }}
+                        className={`relative w-10 h-5 rounded-full transition-colors duration-200 focus:outline-none ${editMember.isMainOverride ? 'bg-amber-500' : 'bg-slate-700'}`}
+                      >
+                        <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200 ${editMember.isMainOverride ? 'translate-x-0.5' : 'translate-x-5'}`} />
+                      </button>
+                      <span className={`text-[10px] font-black uppercase tracking-widest transition-colors ${!editMember.isMainOverride ? 'text-slate-300' : 'text-slate-600'}`}>Twink</span>
+                    </div>
+
                     {allChars.map((char, i) => {
                       const isUsedElsewhere = assignedInOtherGroups.some(p => isSameCharacter(p, char));
                       const isActiveHere = activePlayerInGroup && isSameCharacter(activePlayerInGroup, char);
@@ -1386,7 +1415,12 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
                         <button
                           key={i}
                           disabled={isUsedElsewhere}
-                          onClick={() => !isUsedElsewhere && changeCharacter(editMember.groupIndex, editMember.memberName, char)}
+                          onClick={() => {
+                            if (isUsedElsewhere) return;
+                            const charIsMain = !!char.isMain;
+                            setEditMember(prev => prev ? { ...prev, isMainOverride: charIsMain } : prev);
+                            changeCharacter(editMember.groupIndex, editMember.memberName, char, charIsMain);
+                          }}
                           className={`w-full flex items-center justify-between p-4 rounded-xl border transition-all relative overflow-hidden ${
                             isActiveHere
                               ? 'bg-indigo-600/10 border-indigo-500 text-indigo-400 shadow-[inset_0_0_20px_rgba(79,70,229,0.1)]'

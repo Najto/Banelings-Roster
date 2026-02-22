@@ -256,9 +256,15 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
       ...group,
       helpers: group.helpers || [],
       players: group.players.map(p => {
+          const nameMatch = (charName: string) => charName.toLowerCase() === p.name.toLowerCase();
+          const serverMatch = (charServer?: string) => !p.server || !charServer || charServer.toLowerCase() === p.server.toLowerCase();
+
           const member = roster.find(m =>
-              m.mainCharacter.name.toLowerCase() === p.name.toLowerCase() ||
-              m.splits.some(s => s.name.toLowerCase() === p.name.toLowerCase())
+              (nameMatch(m.mainCharacter.name) && serverMatch(m.mainCharacter.server)) ||
+              m.splits.some(s => nameMatch(s.name) && serverMatch(s.server))
+          ) || roster.find(m =>
+              nameMatch(m.mainCharacter.name) ||
+              m.splits.some(s => nameMatch(s.name))
           );
 
           let resolvedServer = p.server;
@@ -266,7 +272,9 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
           let isMainMismatch = false;
 
           if (member) {
-             const charMatch = [member.mainCharacter, ...member.splits].find(c => c.name.toLowerCase() === p.name.toLowerCase());
+             const charMatch = [member.mainCharacter, ...member.splits].find(c =>
+               nameMatch(c.name) && serverMatch(c.server)
+             ) || [member.mainCharacter, ...member.splits].find(c => nameMatch(c.name));
              if (charMatch) {
                resolvedServer = charMatch.server;
                if (charMatch.itemLevel) resolvedIlvl = charMatch.itemLevel;

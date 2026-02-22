@@ -788,19 +788,41 @@ const App: React.FC = () => {
           ))}
         </div>
 
-        <div className={`border-t border-white/5 ${sidebarCollapsed ? 'pt-4' : 'pt-8'}`}>
+        <div className={`border-t border-white/5 ${sidebarCollapsed ? 'pt-4' : 'pt-8'} flex flex-col gap-3`}>
           {sidebarCollapsed ? (
-            <div className="flex justify-center" title={`Last Sync: ${lastUpdate}`}>
-              <Database className={isUpdating ? "text-[#059669] animate-pulse" : "text-emerald-500"} size={14} />
-            </div>
-          ) : (
-            <div className="bg-black/40 p-4 rounded-xl border border-white/5">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">Database State</p>
-                <Database className={isUpdating ? "text-[#059669] animate-pulse" : "text-emerald-500"} size={12} />
+            <>
+              <div className="flex justify-center">
+                <button
+                  onClick={syncAll}
+                  disabled={isUpdating}
+                  title="Refresh Armory"
+                  className="text-slate-500 hover:text-white transition-colors disabled:opacity-50"
+                >
+                  {isUpdating ? <Loader2 className="animate-spin text-[#059669]" size={14} /> : <RefreshCw size={14} />}
+                </button>
               </div>
-              <p className="text-[10px] text-slate-300">Last Sync: {lastUpdate}</p>
-            </div>
+              <div className="flex justify-center" title={`Last Sync: ${lastUpdate}`}>
+                <Database className={isUpdating ? "text-[#059669] animate-pulse" : "text-emerald-500"} size={14} />
+              </div>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={syncAll}
+                disabled={isUpdating}
+                className="w-full bg-[#059669] hover:bg-emerald-500 text-white px-4 py-3 rounded-xl text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-50"
+              >
+                {isUpdating ? <Loader2 className="animate-spin" size={14} /> : <RefreshCw size={14} />}
+                {isUpdating ? 'Syncing...' : 'Refresh Armory'}
+              </button>
+              <div className="bg-black/40 p-4 rounded-xl border border-white/5">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">Database State</p>
+                  <Database className={isUpdating ? "text-[#059669] animate-pulse" : "text-emerald-500"} size={12} />
+                </div>
+                <p className="text-[10px] text-slate-300">Last Sync: {lastUpdate}</p>
+              </div>
+            </>
           )}
         </div>
       </nav>
@@ -851,21 +873,11 @@ const App: React.FC = () => {
             </h2>
           </div>
           
-          <div className="flex flex-col items-end gap-2">
-              <button 
-                  onClick={syncAll}
-                  disabled={isUpdating}
-                  className="bg-indigo-600 hover:bg-indigo-500 text-white px-8 py-4 rounded-2xl text-xs font-black uppercase tracking-[0.2em] flex items-center gap-3 transition-all active:scale-95 disabled:opacity-50 shadow-xl shadow-indigo-600/20"
-              >
-                  {isUpdating ? <Loader2 className="animate-spin" size={16} /> : <RefreshCw size={16} />}
-                  {isUpdating ? 'SYNCING...' : 'REFRESH Armory'}
-              </button>
-              {isUpdating && (
-                <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden mt-1">
-                  <div className="h-full bg-emerald-500 animate-pulse rounded-full" style={{ width: '100%' }} />
-                </div>
-              )}
-          </div>
+          {isUpdating && (
+            <div className="w-48 h-1 bg-white/5 rounded-full overflow-hidden">
+              <div className="h-full bg-emerald-500 animate-pulse rounded-full" style={{ width: '100%' }} />
+            </div>
+          )}
         </header>
 
         {error && (

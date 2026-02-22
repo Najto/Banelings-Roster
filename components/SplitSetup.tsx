@@ -43,6 +43,7 @@ import {
   ChevronDown,
   GripVertical,
   AlertTriangle,
+  TriangleAlert,
   LogIn,
   LogOut,
   Users,
@@ -952,8 +953,8 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
                                         </span>
                                       </div>
                                       <div className="flex items-center gap-1.5">
-                                        <span className={`text-[8px] font-bold uppercase px-1 rounded ${(assignedChar as any).isMainMismatch ? 'bg-red-500/25 text-red-500 animate-pulse' : assignedChar.isMain ? 'bg-amber-500/10 text-amber-500' : 'bg-slate-800 text-slate-500'}`}>
-                                          {assignedChar.isMain ? 'Main' : 'Twink'}{(assignedChar as any).isMainMismatch ? '!' : ''}
+                                        <span className={`text-[8px] font-bold uppercase px-1 rounded flex items-center gap-0.5 ${(assignedChar as any).isMainMismatch ? 'bg-red-500/25 text-red-500 animate-pulse' : assignedChar.isMain ? 'bg-amber-500/10 text-amber-500' : 'bg-slate-800 text-slate-500'}`}>
+                                          {assignedChar.isMain ? 'Main' : 'Twink'}{(assignedChar as any).isMainMismatch ? <TriangleAlert size={8} /> : ''}
                                         </span>
                                         <span className="text-[7px] text-slate-600 font-bold uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">
                                           ({member.name})
@@ -1027,8 +1028,8 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
                                         <span className="text-xs font-black truncate" style={{ color: CLASS_COLORS[orphanedChar.className] }}>{orphanedChar.name}</span>
                                       </div>
                                       <div className="flex items-center gap-1.5">
-                                          <span className={`text-[8px] font-bold uppercase px-1 rounded ${(orphanedChar as any).isMainMismatch ? 'bg-orange-500/15 text-orange-400' : orphanedChar.isMain ? 'bg-amber-500/10 text-amber-500' : 'bg-slate-800 text-slate-500'}`}>
-                                              {orphanedChar.isMain ? 'Main' : 'Twink'}{(orphanedChar as any).isMainMismatch ? '!' : ''}
+                                          <span className={`text-[8px] font-bold uppercase px-1 rounded flex items-center gap-0.5 ${(orphanedChar as any).isMainMismatch ? 'bg-orange-500/15 text-orange-400' : orphanedChar.isMain ? 'bg-amber-500/10 text-amber-500' : 'bg-slate-800 text-slate-500'}`}>
+                                              {orphanedChar.isMain ? 'Main' : 'Twink'}{(orphanedChar as any).isMainMismatch ? <TriangleAlert size={8} /> : ''}
                                           </span>
                                           <span className="text-[7px] text-slate-600 font-bold uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">({orphanedChar.playerName})</span>
                                       </div>

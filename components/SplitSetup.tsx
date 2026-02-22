@@ -258,9 +258,16 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
           );
 
           let resolvedServer = p.server;
+          let resolvedIlvl = p.ilvl;
+          let isMainMismatch = false;
+
           if (member) {
-             const charMatch = [member.mainCharacter, ...member.splits].find(c => c.name.toLowerCase() === p.name.toLowerCase() && !!c.isMain === !!p.isMain);
-             if (charMatch) resolvedServer = charMatch.server;
+             const charMatch = [member.mainCharacter, ...member.splits].find(c => c.name.toLowerCase() === p.name.toLowerCase());
+             if (charMatch) {
+               resolvedServer = charMatch.server;
+               if (charMatch.itemLevel) resolvedIlvl = charMatch.itemLevel;
+               if (!!charMatch.isMain !== !!p.isMain) isMainMismatch = true;
+             }
           }
 
           const isOrphaned = !roster.find(m => m.name === p.playerName);
@@ -269,7 +276,9 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
               ...p,
               playerName: member?.name || p.playerName || p.name,
               server: resolvedServer,
-              isOrphaned
+              ilvl: resolvedIlvl,
+              isOrphaned,
+              isMainMismatch
           };
       })
     }));
@@ -915,8 +924,8 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
                                         <span className="text-xs font-black truncate" style={{ color: CLASS_COLORS[assignedChar.className] }}>{assignedChar.name}</span>
                                       </div>
                                       <div className="flex items-center gap-1.5">
-                                          <span className={`text-[8px] font-bold uppercase px-1 rounded ${assignedChar.isMain ? 'bg-amber-500/10 text-amber-500' : 'bg-slate-800 text-slate-500'}`}>
-                                              {assignedChar.isMain ? 'Main' : 'Twink'}
+                                          <span className={`text-[8px] font-bold uppercase px-1 rounded ${(assignedChar as any).isMainMismatch ? 'bg-orange-500/15 text-orange-400' : assignedChar.isMain ? 'bg-amber-500/10 text-amber-500' : 'bg-slate-800 text-slate-500'}`}>
+                                              {assignedChar.isMain ? 'Main' : 'Twink'}{(assignedChar as any).isMainMismatch ? '!' : ''}
                                           </span>
                                           <span className="text-[7px] text-slate-600 font-bold uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">({member.name})</span>
                                       </div>
@@ -988,8 +997,8 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
                                         <span className="text-xs font-black truncate" style={{ color: CLASS_COLORS[orphanedChar.className] }}>{orphanedChar.name}</span>
                                       </div>
                                       <div className="flex items-center gap-1.5">
-                                          <span className={`text-[8px] font-bold uppercase px-1 rounded ${orphanedChar.isMain ? 'bg-amber-500/10 text-amber-500' : 'bg-slate-800 text-slate-500'}`}>
-                                              {orphanedChar.isMain ? 'Main' : 'Twink'}
+                                          <span className={`text-[8px] font-bold uppercase px-1 rounded ${(orphanedChar as any).isMainMismatch ? 'bg-orange-500/15 text-orange-400' : orphanedChar.isMain ? 'bg-amber-500/10 text-amber-500' : 'bg-slate-800 text-slate-500'}`}>
+                                              {orphanedChar.isMain ? 'Main' : 'Twink'}{(orphanedChar as any).isMainMismatch ? '!' : ''}
                                           </span>
                                           <span className="text-[7px] text-slate-600 font-bold uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">({orphanedChar.playerName})</span>
                                       </div>

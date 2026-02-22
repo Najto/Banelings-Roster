@@ -1390,7 +1390,6 @@ export const SplitSetup: React.FC<SplitSetupProps> = ({ splits, roster, minIlvl 
                 return (
                   <>
                     {/* Main / Twink toggle */}
-                    {/* Main / Twink toggle */}
                     <div className="flex items-center justify-between p-3 rounded-xl bg-white/[0.02] border border-white/5 mb-2">
                       {/* Main label */}
                       <button
